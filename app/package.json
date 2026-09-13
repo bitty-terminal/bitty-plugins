@@ -1,0 +1,12 @@
+{
+  "name": "bitty-plugins-store",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Static plugin store frontend for the Bitty ecosystem; builds from generated/registry.json.",
+  "license": "MIT",
+  "scripts": {
+    "build": "bun run build.ts",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  }
+}

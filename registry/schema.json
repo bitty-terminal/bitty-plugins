@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plugins.bitty-terminal.org/registry/schema.json",
+  "title": "Bitty registry entry",
+  "description": "Schema for one registry entry file under registry/official/ or registry/community/. Entries carry hand-maintained identity data only; derived metadata (version, stars, dates, downloads) is generated and must not be declared. The official/community distinction is derived from the file location and is not a field.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "repository"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Stable plugin identifier; matches the manifest plugin.id when a manifest exists.",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+      "maxLength": 64
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable display name.",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "repository": {
+      "type": "string",
+      "description": "HTTPS repository URL without query, fragment, or credentials; at least two path segments.",
+      "pattern": "^https://[a-z0-9.-]+(?:/[A-Za-z0-9._~-]+){2,}$",
+      "maxLength": 200
+    },
+    "kind": {
+      "type": "string",
+      "description": "Entry kind. Future kinds extend this enum without a schema break.",
+      "default": "plugin",
+      "enum": ["plugin", "theme", "skill", "harness", "mcp", "integration"]
+    },
+    "author": {
+      "type": "string",
+      "description": "Lowercase author handle used in store routes.",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "maxLength": 64
+    },
+    "description": {
+      "type": "string",
+      "description": "One-sentence summary.",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "tags": {
+      "type": "array",
+      "description": "Free-form lowercase tags.",
+      "uniqueItems": true,
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        "maxLength": 32
+      }
+    },
+    "categories": {
+      "type": "array",
+      "description": "Store categories; open slug vocabulary until a documented closed set is accepted.",
+      "uniqueItems": true,
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        "maxLength": 32
+      }
+    },
+    "license": {
+      "type": "string",
+      "description": "SPDX expression. Syntax is validated strictly; unrecognized SPDX identifiers produce warnings, not errors.",
+      "maxLength": 100
+    },
+    "compatibility": {
+      "type": "object",
+      "description": "Optional compatibility ranges (semver range syntax).",
+      "additionalProperties": false,
+      "properties": {
+        "bitty": {
+          "type": "string",
+          "description": "Bitty application range, for example \">=0.5,<1.0\".",
+          "maxLength": 64
+        },
+        "sdk": {
+          "type": "string",
+          "description": "bitty-plugin-sdk range, for example \"^0.1\".",
+          "maxLength": 64
+        }
+      }
+    }
+  }
+}

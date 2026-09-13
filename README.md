@@ -1,0 +1,160 @@
+# Bitty Plugins
+
+Official plugin directory, registry, and store frontend for the Bitty
+ecosystem.
+
+- Canonical repository:
+  [bitty-terminal/bitty-plugins](https://github.com/bitty-terminal/bitty-plugins)
+- Planned store endpoint: <https://plugins.bitty-terminal.org>
+
+This repository is pre-implementation. The registry format, validation,
+generation, and the static store prototype exist; the `bitty plugin add <id>`
+install flow is a **design proposal** documented here, not implemented
+behavior. Do not describe the store or CLI as shipped product behavior.
+
+## What this repository owns
+
+| Path         | Responsibility                                                                               |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| `registry/`  | Machine-readable registry entries (official and community), plus the entry schema.           |
+| `generated/` | Built artifacts consumed by downstream clients; only `registry.json` today.                  |
+| `app/`       | Static store frontend (vanilla TypeScript, Bun build, no server, no framework).              |
+| `plugins/`   | Official maintained plugins as pinned Git submodules (known-good set).                       |
+| `sdk/`       | Submodule: [bitty-plugin-sdk](https://github.com/bitty-terminal/bitty-plugin-sdk).           |
+| `template/`  | Submodule: [bitty-plugin-template](https://github.com/bitty-terminal/bitty-plugin-template). |
+| `scripts/`   | Registry validation, index generation, and metadata synchronization.                         |
+
+This repository does **not** own the terminal core or plugin host (`bitty`),
+canonical specification text (`bitty-docs`, `bitty-plugins-docs`), or the SDK
+and template implementations (their own repositories).
+
+## Official versus community boundary (fixed)
+
+- **Official plugins** live in `plugins/` as pinned submodules. An update is a
+  submodule pointer bump reviewed like any other change; the directory is the
+  known-good set maintained by `bitty-terminal`.
+- **Community plugins are never submodules.** They live only as registry
+  entries at `registry/community/<author>-<slug>.toml`, one file per plugin, in
+  a machine-readable awesome-list model. This repository never clones or pins
+  community code.
+- Official entries live at `registry/official/<name>.toml` and are marked
+  `official: true` in the generated index. The distinction is derived from the
+  entry location, never declared inside the entry.
+
+## Registry model
+
+Registry entries are deliberately minimal. A source file declares only
+hand-maintained identity data:
+
+```toml
+id = "bitty-featured.activity"
+name = "Bitty Activity"
+repository = "https://github.com/bitty-terminal/activity"
+kind = "plugin" # optional; default "plugin"; future: theme|skill|harness|mcp|integration
+author = "bitty-terminal" # optional
+description = "Privacy-first local activity timeline plugin." # optional
+tags = ["activity", "privacy"] # optional
+categories = ["productivity"] # optional
+license = "MIT" # optional
+
+[compatibility]
+bitty = ">=0.5,<1.0" # optional application range
+sdk = "^0.1" # optional SDK range
+```
+
+- Derived metadata (version, stars, dates, download counts) is **never**
+  duplicated in registry files. `scripts/sync-metadata.ts` reads each plugin
+  repository's `bitty-plugin.toml` when it can and records the result under the
+  optional `metadata` object of `generated/registry.json`; offline runs degrade
+  gracefully and leave the index unchanged.
+- `registry/schema.json` is the JSON Schema for entries and allows future
+  kinds without a schema break.
+- The generated index is sorted by `id`, generated deterministically, and
+  idempotent: `generated_at` only changes when the plugin payload changes.
+
+### Source-of-truth pipeline
+
+```text
+registry/**/*.toml
+        |  scripts/validate-registry.ts   (schema, duplicates, URLs, licenses, ranges)
+        v
+scripts/generate-index.ts                (deterministic merge)
+        |
+        v
+generated/registry.json  ----------------> app/ store frontend
+        |  schema_version, generated_at, plugins[]
+        |                                  future `bitty plugin search/add` CLI
+        v
+scripts/sync-metadata.ts  (optional, bounded network refresh of manifest metadata)
+```
+
+Both the store frontend and any future CLI consume **only**
+`generated/registry.json`; neither reads `registry/**` directly.
+
+### Install CLI status
+
+`bitty plugin add <id>` is a design proposal for the future package CLI. The
+command shown in the store frontend is illustrative; the Bitty core does not
+implement registry installs yet.
+
+## Local development
+
+All JavaScript tooling runs through `bun` / `bunx --bun`; `npm`, `npx`, and
+`yarn` are never used in this repository. All gates run through the justfile:
+
+```text
+just check              # fmt-check + lint + type-check + test + registry + app-build
+just fmt                # format files with Prettier (writes)
+just lint               # Markdown lint (markdownlint-cli2)
+just type-check         # TypeScript, scripts/ and app/
+just test               # registry/tooling test suite (bun test)
+just registry-validate  # validate registry entries (network-guarded)
+just registry-generate  # rebuild generated/registry.json
+just registry-sync      # refresh metadata from bitty-plugin.toml (network, optional)
+just app-build          # build the static store into app/dist
+just hooks-install      # install lefthook Git hooks (opt-in per checkout)
+```
+
+Use `--skip-network` with `just registry-validate --skip-network` (or
+`REGISTRY_SKIP_NETWORK=1`) for hermetic runs; with no network the validator
+prints a notice and continues with static checks only.
+
+## Submodules
+
+Clone with submodules when you need the SDK, template, or official plugin
+sources:
+
+```sh
+git clone --recurse-submodules https://github.com/bitty-terminal/bitty-plugins.git
+# or, in an existing checkout:
+git submodule update --init --recursive
+```
+
+`plugins/` contains official plugins only. Community entries are data, not
+code, and never become submodules.
+
+## Continuous integration
+
+| Workflow                 | Purpose                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------- |
+| `registry-check.yml`     | Validates registry changes and fails when `generated/registry.json` is stale.    |
+| `plugin-integration.yml` | Full quality gates plus an SDK/template/official-plugin integration smoke.       |
+| `deploy.yml`             | Manual, secret-gated build and deployment of `app/` (dormant until provisioned). |
+| `codeql.yml`             | CodeQL analysis for JavaScript/TypeScript and GitHub Actions.                    |
+
+`deploy.yml` targets a Cloudflare Pages project for
+`plugins.bitty-terminal.org`. The Pages project, domain, and
+`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets do not exist yet, so
+the workflow is `workflow_dispatch`-only and fails closed with a clear message
+until an operator provisions them. No credentials are committed.
+
+## Contributing and security
+
+- Community plugin registry entries: see [CONTRIBUTING.md](CONTRIBUTING.md).
+- Official plugin additions or pointer bumps: see [AGENTS.md](AGENTS.md).
+- Vulnerability reporting: see [SECURITY.md](SECURITY.md).
+- Agent and contributor rules: [AGENTS.md](AGENTS.md).
+
+## License
+
+MIT. See [LICENSE](LICENSE).

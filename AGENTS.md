@@ -1,0 +1,134 @@
+# bitty-plugins agent guide
+
+## Repository scope and authority
+
+- This independent repository owns the official plugin directory, the
+  machine-readable registry, the generated index, and the static store
+  frontend for the Bitty ecosystem. It is **not** a monorepo of community
+  plugins and does not own plugin implementations.
+- The canonical remote is
+  <https://github.com/bitty-terminal/bitty-plugins>.
+- Canonical plugin architecture, manifest, security, packaging, and
+  compatibility contracts belong to `bitty-docs` / `bitty-plugins-docs`. This
+  repository must not invent manifest fields, capability semantics, or release
+  policy.
+- The project is pre-implementation. Registry tooling and the static store
+  prototype exist; the `bitty plugin add <id>` CLI flow is a design proposal,
+  not implemented behavior. Never describe the store or CLI as shipped.
+- Product behavior changes require an explicitly scoped task.
+
+## Read before acting
+
+1. Read this guide and the active task's files under `.carryctx/rules/`.
+2. Inspect the CarryCtx task, team context, dependencies, and exact scopes.
+3. Verify the relevant `bitty-plugins-docs` / `bitty-docs` contracts before
+   changing registry semantics or storefront claims.
+4. Prefer `ctxctl outline` / `ctxctl read` for inspection and `rg` for
+   discovery.
+
+## CarryCtx and delivery
+
+- CarryCtx is the durable execution record; the external harness runs agents.
+- Every agent binds a named session to the task, records progress, decisions,
+  risks, and checkpoints, and stays inside explicit scopes.
+- The normal lifecycle is GitHub Issue, CarryCtx task/team/dependencies/scopes,
+  isolated worktree and branch, commit, pull request, independent review plus
+  CI, merge, documentation synchronization, checkpoint, task completion, and
+  Issue closure.
+- After the first commit, parallel work uses a dedicated branch and worktree.
+  Branches use `ctx-XXXX/<type>-<short-slug>` (`XXXX` is the owning CarryCtx
+  task number; `<type>` is one of `feat|fix|chore|docs`; slug is short
+  kebab-case) with worktrees at `.worktrees/ctx-XXXX-<type>-<short-slug>`;
+  one branch per task, commander housekeeping may use `cmd/<slug>`.
+- Before the first commit, initialization may use the shared checkout only with
+  disjoint scopes and CI-equivalent local checks.
+- Implementers stop at review. Independent review by a different agent plus
+  required CI is the acceptance gate; green CI is not a substitute for review.
+- Do not commit, push, merge, publish, release, or mutate remote state unless
+  the task or user explicitly authorizes it.
+
+## Registry contracts
+
+- `registry/**/*.toml` is the source of truth; `generated/registry.json` is a
+  generated artifact. Never hand-edit `generated/registry.json`; run
+  `just registry-generate`.
+- Official plugins are pinned submodules under `plugins/`; updating one means
+  bumping the submodule pointer in a reviewed change.
+- Community plugins are **never** submodules. They exist only as
+  `registry/community/<author>-<slug>.toml` entries.
+- Entries stay minimal: `id`, `name`, `repository`, optional `kind` (default
+  `"plugin"`), `author`, `description`, `tags`, `categories`, `license`, and
+  optional `[compatibility] bitty` / `sdk` ranges. Never add derived metadata
+  (version, stars, dates, downloads); `scripts/sync-metadata.ts` populates the
+  optional `metadata` object from each plugin's `bitty-plugin.toml`.
+- Downstream consumers (store, future CLI) read only
+  `generated/registry.json`. Do not add a second read path.
+
+## Storefront rules
+
+- `app/` is a static site: no server, no framework, no runtime dependency
+  beyond `generated/registry.json`.
+- Registry data is untrusted input. Render it with DOM text nodes or
+  `textContent`; never interpolate registry values into `innerHTML`.
+- Keep the store lightweight and accessible: semantic landmarks, labeled
+  controls, visible focus, keyboard-operable links, adequate contrast, and
+  `prefers-color-scheme` support.
+- Install commands shown in the store are proposals; label them as such.
+
+## Toolchain policy
+
+- Never use `npm`, `npx`, or `yarn` here. JavaScript execution and package
+  management use `bun` / `bunx --bun` exclusively (Bun 1.4.0 unless a reviewed
+  task pins otherwise).
+- Never invoke formatters, linters, or the registry scripts directly by name in
+  documentation or hooks. Run gates through the justfile: `just check`, plus
+  `just fmt`, `just lint`, `just type-check`, `just test`,
+  `just registry-validate`, `just registry-generate`, `just app-build`.
+- Version pins live in exactly one place per pin: the justfile for bunx tool
+  pins, `package.json` + `bun.lock` for installed dev dependencies. Do not bump
+  pins as a side effect of an unrelated task; report drift instead.
+- CI success is a hard acceptance gate. Workflow-affecting changes are
+  validated locally with `actionlint` and an `act -n` dry run before push.
+
+## No hardcoded values
+
+- Never hardcode host- or environment-specific values: absolute paths,
+  usernames, hostnames, credentials, ports, or machine layout.
+- Derive values from configuration, environment variables, or repository
+  metadata. Repository names and URLs come from the registry entries, the git
+  remote, or parameters, never from literals duplicated across scripts.
+- Tests, fixtures, docs, and scripts obey the same rule; durable artifacts must
+  not embed a developer's checkout path.
+- Use named constants for policy-bounded values (timeouts, limits, defaults).
+
+## Security and supply chain
+
+- Registry TOML files, manifests fetched over the network, and plugin metadata
+  are untrusted data. Validate before use; never execute registry content.
+- Network access from scripts is bounded: explicit timeouts, no secrets, no
+  credentials, and graceful offline degradation.
+- Submodule pointers are reviewed changes. Community entries never gain code
+  execution or clone authority through this repository.
+- No secrets, tokens, or local configuration in the repository, fixtures, logs,
+  or CI output. Fork pull requests run read-only with no secrets.
+
+## Verification and handoff
+
+- Keep edits inside the active CarryCtx scope and preserve unrelated work.
+- Run `just check` plus `actionlint`, `act -n` on affected workflows, and
+  `gitleaks detect --source .` before concluding a change.
+- Documentation synchronization is part of definition of done: update this
+  repository's README/CHANGELOG and record canonical documentation work for
+  `bitty-plugins-docs` as a tracked follow-up.
+- Report changed files, exact evidence, residual risks, and required
+  cross-repository updates. A passing local check does not prove deployment,
+  registry trust, or product implementation.
+
+## Workspace conventions
+
+- Run Git and CarryCtx inside this repository, never from the umbrella root.
+- Use the workspace `recording/` area for durable scratch material; ephemeral
+  scratch belongs under `/tmp`. Never write scratch outside those locations and
+  never into unrelated workspace paths.
+- Prefer a collision-safe move under `../.trash/bitty-plugins/` over destructive
+  deletion; never move another agent's files.

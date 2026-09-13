@@ -1,0 +1,11 @@
+node_modules/
+sdk/
+template/
+plugins/
+app/dist/
+.wrangler/
+.worktrees/
+bun.lock
+
+# Generated artifact: canonical formatting is owned by scripts/generate-index.ts.
+generated/

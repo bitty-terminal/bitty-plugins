@@ -1,0 +1,9 @@
+[submodule "sdk"]
+	path = sdk
+	url = https://github.com/bitty-terminal/bitty-plugin-sdk
+[submodule "template"]
+	path = template
+	url = https://github.com/bitty-terminal/bitty-plugin-template
+[submodule "plugins/activity"]
+	path = plugins/activity
+	url = https://github.com/bitty-terminal/activity
