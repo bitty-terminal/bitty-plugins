@@ -1,10 +1,10 @@
 {
   "created_at": "2026-09-13T18:26:25.224442158+00:00",
-  "git_common_dir": "/tmp/opencode/bitty-plugins/.git",
+  "git_common_dir": "/tmp/opencode/docs-wiring/bitty-plugins/.git",
   "id": "01M2E0AGA8R1CF9YMH8MENJ2Q9",
   "main_branch": "main",
   "name": "bitty-plugins",
-  "repository_root": "/tmp/opencode/bitty-plugins",
+  "repository_root": "/tmp/opencode/docs-wiring/bitty-plugins",
   "schema_version": 4,
   "task_prefix": "CTX",
   "updated_at": "2026-09-13T18:26:25.224442158+00:00"
