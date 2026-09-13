@@ -7,3 +7,7 @@
 [submodule "plugins/activity"]
 	path = plugins/activity
 	url = https://github.com/bitty-terminal/activity
+[submodule "docs"]
+	path = docs
+	url = https://github.com/bitty-terminal/bitty-plugins-docs
+	branch = main

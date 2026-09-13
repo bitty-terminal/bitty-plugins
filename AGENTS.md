@@ -9,7 +9,9 @@
 - The canonical remote is
   <https://github.com/bitty-terminal/bitty-plugins>.
 - Canonical plugin architecture, manifest, security, packaging, and
-  compatibility contracts belong to `bitty-docs` / `bitty-plugins-docs`. This
+  compatibility contracts belong to `bitty-plugins-docs`, mounted here at
+  `docs/` as a Git submodule pinned to a commit. `bitty-docs` owns shared
+  governance (decisions, security corpus, reviews, project state). This
   repository must not invent manifest fields, capability semantics, or release
   policy.
 - The project is pre-implementation. Registry tooling and the static store
@@ -21,8 +23,9 @@
 
 1. Read this guide and the active task's files under `.carryctx/rules/`.
 2. Inspect the CarryCtx task, team context, dependencies, and exact scopes.
-3. Verify the relevant `bitty-plugins-docs` / `bitty-docs` contracts before
-   changing registry semantics or storefront claims.
+3. Verify the relevant contracts in the `docs/` submodule (bitty-plugins-docs)
+   and `bitty-docs` before changing registry semantics or storefront claims;
+   run `git submodule update --init` when `docs/` is empty.
 4. Prefer `ctxctl outline` / `ctxctl read` for inspection and `rg` for
    discovery.
 
@@ -54,6 +57,11 @@
   `just registry-generate`.
 - Official plugins are pinned submodules under `plugins/`; updating one means
   bumping the submodule pointer in a reviewed change.
+- `sdk/`, `template/`, and `docs/` are submodules too, but they are not
+  plugins: `docs/` mounts the canonical `bitty-plugins-docs` corpus (initialize
+  with `git submodule update --init`; bump with `git submodule update --remote
+docs` plus `git add docs`) and is excluded from registry and
+  plugin-integration discovery.
 - Community plugins are **never** submodules. They exist only as
   `registry/community/<author>-<slug>.toml` entries.
 - Entries stay minimal: `id`, `name`, `repository`, optional `kind` (default
@@ -118,8 +126,9 @@
 - Run `just check` plus `actionlint`, `act -n` on affected workflows, and
   `gitleaks detect --source .` before concluding a change.
 - Documentation synchronization is part of definition of done: update this
-  repository's README/CHANGELOG and record canonical documentation work for
-  `bitty-plugins-docs` as a tracked follow-up.
+  repository's README/CHANGELOG and, for canonical material, the
+  `bitty-plugins-docs` corpus by bumping the `docs/` submodule pointer
+  (`git submodule update --remote docs`, then `git add docs`).
 - Report changed files, exact evidence, residual risks, and required
   cross-repository updates. A passing local check does not prove deployment,
   registry trust, or product implementation.
