@@ -1,0 +1,153 @@
+.search {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin: 1rem 0 0.25rem;
+}
+
+.search input {
+  flex: 1;
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: inherit;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.filter label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.filter select {
+  font: inherit;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: inherit;
+}
+
+.results {
+  margin-top: 0.5rem;
+}
+
+.cards {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  background: var(--surface);
+}
+
+.card .card-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.card-description {
+  margin: 0.4rem 0;
+}
+
+.card-meta {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.3rem 0;
+}
+
+.badge {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--badge-community-bg);
+  color: var(--badge-community-fg);
+}
+
+.badge-official {
+  background: var(--badge-official-bg);
+  color: var(--badge-official-fg);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0.5rem 0;
+}
+
+.facts dt {
+  font-weight: 600;
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.7rem 0.9rem;
+  overflow-x: auto;
+}
+
+.command {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.command pre {
+  flex: 1;
+  margin: 0;
+}
+
+.copy-button {
+  font: inherit;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: inherit;
+  cursor: pointer;
+}
+
+.copy-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.copy-status {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}

@@ -38,7 +38,7 @@ fmt-check-files *files:
 # Type-check scripts/ and app/ with the TypeScript pinned in package.json.
 type-check:
 	bunx --bun tsc -p tsconfig.json --noEmit
-	cd app && bunx --bun tsc -p tsconfig.json --noEmit
+	cd app && bun run type-check
 
 # Run this repository's registry and tooling test suite (tests/ only;
 # submodule suites run through integration-smoke).
@@ -65,9 +65,17 @@ registry-check:
 registry-sync *args:
 	bun scripts/sync-metadata.ts {{args}}
 
-# Build the static store frontend into app/dist.
+# Build the static store frontend into app/dist (Vite).
 app-build:
 	cd app && bun run build
+
+# Run the Vite dev server for the store (serves generated/registry.json).
+app-dev:
+	cd app && bun run dev
+
+# Build and preview the store the way the deploy target serves it.
+app-preview: app-build
+	cd app && bun run preview
 
 # Validate a commit message file with commitlint (conventional commits).
 commit-check message=".git/COMMIT_EDITMSG":

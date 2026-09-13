@@ -8,6 +8,14 @@
   plugins and does not own plugin implementations.
 - The canonical remote is
   <https://github.com/bitty-terminal/bitty-plugins>.
+- Production surfaces (owner-provided, 2026-09-14): <https://bitty.run> is the
+  product website owned by `bitty-website` (Astro), and
+  <https://plugins.bitty.run> is this repository's plugin store. The domain was
+  newly registered; Cloudflare verification may still be pending.
+- Organization-level Cloudflare variables `CLOUDFLARE_ACCOUNT_ID` and
+  `CLOUDFLARE_API_TOKEN` exist for CI/CD. The `bitty-plugins` Pages project and
+  the `plugins.bitty.run` custom domain are provisioned outside this
+  repository. Never commit credentials.
 - Canonical plugin architecture, manifest, security, packaging, and
   compatibility contracts belong to `bitty-plugins-docs`, mounted here at
   `docs/` as a Git submodule pinned to a commit. `bitty-docs` owns shared
@@ -74,14 +82,26 @@ docs` plus `git add docs`) and is excluded from registry and
 
 ## Storefront rules
 
-- `app/` is a static site: no server, no framework, no runtime dependency
-  beyond `generated/registry.json`.
+- `app/` is a static site built with Vite + TypeScript and small custom
+  elements (vanilla DOM / Web Components). Do not add a UI framework, a
+  server, or a runtime dependency beyond `generated/registry.json`.
+- The Vite build emits `generated/registry.json` beside `index.html` as the
+  `/registry.json` static asset; do not commit a second copy under `app/`.
+- Client-side routes use the History API and rely on the Cloudflare Pages SPA
+  fallback in `app/public/_redirects`; keep deep links working.
 - Registry data is untrusted input. Render it with DOM text nodes or
   `textContent`; never interpolate registry values into `innerHTML`.
 - Keep the store lightweight and accessible: semantic landmarks, labeled
   controls, visible focus, keyboard-operable links, adequate contrast, and
   `prefers-color-scheme` support.
 - Install commands shown in the store are proposals; label them as such.
+- `deploy.yml` builds `app/` with Bun and publishes it to the `bitty-plugins`
+  Cloudflare Pages project (`plugins.bitty.run`) on pushes to `main` and
+  manual dispatches. Credentials resolve only from CI configuration
+  (`CLOUDFLARE_API_TOKEN`: repository secret with organization-variable
+  fallback; `CLOUDFLARE_ACCOUNT_ID`: organization variable). Never commit
+  tokens, never add a second publish path, and keep the workflow skipping the
+  deploy with a clear notice while provisioning is incomplete.
 
 ## Toolchain policy
 
