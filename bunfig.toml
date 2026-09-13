@@ -1,0 +1,4 @@
+# Restrict `bun test` discovery to this repository's test suite. Submodule
+# test suites run through `just integration-smoke`, never through this gate.
+[test]
+root = "tests"

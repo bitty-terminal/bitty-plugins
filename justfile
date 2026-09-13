@@ -40,10 +40,10 @@ type-check:
 	bunx --bun tsc -p tsconfig.json --noEmit
 	cd app && bunx --bun tsc -p tsconfig.json --noEmit
 
-# Run this repository's registry and tooling test suite (tests/ only; submodule
-# suites run through integration-smoke).
+# Run this repository's registry and tooling test suite (tests/ only;
+# submodule suites run through integration-smoke).
 test:
-	bun test tests/
+	bun test
 
 # Validate registry entries: schema, duplicate ids, repository URL format and
 # existence (bounded, skipped with a notice when offline), license expressions,
