@@ -12,10 +12,13 @@ name: Deploy store
 #
 # Credentials: CLOUDFLARE_API_TOKEN is read from the repository/organization
 # secret first and falls back to the organization variable of the same name;
-# CLOUDFLARE_ACCOUNT_ID is read from the organization variable. The deploy is
-# fail-closed: without both values it is skipped with a clear notice (nothing
-# is ever published with partial credentials) while the build still runs, so
-# pushes to main stay green until provisioning is complete.
+# CLOUDFLARE_ACCOUNT_ID is read from the organization variable. Both are scoped
+# to the two steps that need them, so they are never present during dependency
+# install lifecycle scripts or the build. Risk callout: a token stored in `vars`
+# is not secret-masked in logs and should be migrated to `secrets` when
+# possible. The deploy is fail-closed: without both values it is skipped with a
+# clear notice (nothing is ever published with partial credentials) while the
+# build still runs, so pushes to main stay green until provisioning completes.
 
 on:
   push:
@@ -43,10 +46,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
-    env:
-      # Repository/organization secret first, organization variable fallback.
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -71,6 +70,10 @@ jobs:
 
       - name: Check Cloudflare provisioning
         id: provisioning
+        env:
+          # Repository/organization secret first, organization variable fallback.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           if [[ -z "${CLOUDFLARE_API_TOKEN}" || -z "${CLOUDFLARE_ACCOUNT_ID}" ]]; then
             {
@@ -89,5 +92,8 @@ jobs:
       - name: Deploy to Cloudflare Pages
         if: steps.provisioning.outputs.provisioned == 'true'
         env:
+          # Repository/organization secret first, organization variable fallback.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           WRANGLER_SEND_METRICS: "false"
         run: just deploy
