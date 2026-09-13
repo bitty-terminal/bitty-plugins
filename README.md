@@ -14,19 +14,21 @@ behavior. Do not describe the store or CLI as shipped product behavior.
 
 ## What this repository owns
 
-| Path         | Responsibility                                                                               |
-| ------------ | -------------------------------------------------------------------------------------------- |
-| `registry/`  | Machine-readable registry entries (official and community), plus the entry schema.           |
-| `generated/` | Built artifacts consumed by downstream clients; only `registry.json` today.                  |
-| `app/`       | Static store frontend (vanilla TypeScript, Bun build, no server, no framework).              |
-| `plugins/`   | Official maintained plugins as pinned Git submodules (known-good set).                       |
-| `sdk/`       | Submodule: [bitty-plugin-sdk](https://github.com/bitty-terminal/bitty-plugin-sdk).           |
-| `template/`  | Submodule: [bitty-plugin-template](https://github.com/bitty-terminal/bitty-plugin-template). |
-| `scripts/`   | Registry validation, index generation, and metadata synchronization.                         |
+| Path         | Responsibility                                                                                                                    |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `registry/`  | Machine-readable registry entries (official and community), plus the entry schema.                                                |
+| `generated/` | Built artifacts consumed by downstream clients; only `registry.json` today.                                                       |
+| `app/`       | Static store frontend (vanilla TypeScript, Bun build, no server, no framework).                                                   |
+| `plugins/`   | Official maintained plugins as pinned Git submodules (known-good set).                                                            |
+| `sdk/`       | Submodule: [bitty-plugin-sdk](https://github.com/bitty-terminal/bitty-plugin-sdk).                                                |
+| `template/`  | Submodule: [bitty-plugin-template](https://github.com/bitty-terminal/bitty-plugin-template).                                      |
+| `docs/`      | Submodule: [bitty-plugins-docs](https://github.com/bitty-terminal/bitty-plugins-docs) — canonical plugin-ecosystem documentation. |
+| `scripts/`   | Registry validation, index generation, and metadata synchronization.                                                              |
 
 This repository does **not** own the terminal core or plugin host (`bitty`),
-canonical specification text (`bitty-docs`, `bitty-plugins-docs`), or the SDK
-and template implementations (their own repositories).
+canonical specification text (shared governance in `bitty-docs`; the
+plugin-ecosystem corpus mounted at `docs/` from `bitty-plugins-docs`), or the
+SDK and template implementations (their own repositories).
 
 ## Official versus community boundary (fixed)
 
@@ -121,8 +123,8 @@ prints a notice and continues with static checks only.
 
 ## Submodules
 
-Clone with submodules when you need the SDK, template, or official plugin
-sources:
+Clone with submodules when you need the SDK, template, official plugin
+sources, or the canonical docs:
 
 ```sh
 git clone --recurse-submodules https://github.com/bitty-terminal/bitty-plugins.git
@@ -130,8 +132,13 @@ git clone --recurse-submodules https://github.com/bitty-terminal/bitty-plugins.g
 git submodule update --init --recursive
 ```
 
-`plugins/` contains official plugins only. Community entries are data, not
-code, and never become submodules.
+- `plugins/` contains official plugins only. Community entries are data, not
+  code, and never become submodules.
+- `docs/` mounts the canonical
+  [bitty-plugins-docs](https://github.com/bitty-terminal/bitty-plugins-docs)
+  corpus, pinned by commit. Bump it with `git submodule update --remote docs`,
+  then `git add docs` and commit the pointer change. It is documentation, not
+  a plugin: registry and integration tooling ignore it.
 
 ## Continuous integration
 

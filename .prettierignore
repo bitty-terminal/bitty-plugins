@@ -2,6 +2,7 @@ node_modules/
 sdk/
 template/
 plugins/
+docs/
 app/dist/
 .wrangler/
 .worktrees/

@@ -14,5 +14,6 @@
     "sdk",
     "template",
     "plugins",
+    "docs",
   ],
 }
