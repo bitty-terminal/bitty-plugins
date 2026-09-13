@@ -3,10 +3,17 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Static plugin store frontend for the Bitty ecosystem; builds from generated/registry.json.",
+  "description": "Static plugin store frontend for the Bitty ecosystem; built with Vite from generated/registry.json.",
   "license": "MIT",
   "scripts": {
-    "build": "bun run build.ts",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "26.5.1",
+    "typescript": "5.7.2",
+    "vite": "8.3.0"
   }
 }

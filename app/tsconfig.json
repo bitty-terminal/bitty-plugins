@@ -4,7 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["bun-types"],
+    "types": ["node", "vite/client"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true,
@@ -12,8 +12,10 @@
     "noEmit": true,
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "useDefineForClassFields": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.ts", "build.ts"],
+  "include": ["src/**/*.ts", "vite.config.ts"],
   "exclude": ["dist"]
 }

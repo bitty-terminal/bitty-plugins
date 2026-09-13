@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plugins.bitty-terminal.org/registry/schema.json",
+  "$id": "https://plugins.bitty.run/registry/schema.json",
   "title": "Bitty registry entry",
   "description": "Schema for one registry entry file under registry/official/ or registry/community/. Entries carry hand-maintained identity data only; derived metadata (version, stars, dates, downloads) is generated and must not be declared. The official/community distinction is derived from the file location and is not a field.",
   "type": "object",

@@ -15,10 +15,13 @@ become an Issue and CarryCtx task in the owning repository before work starts.
 
 ## Store frontend
 
-- [ ] Provision the Cloudflare Pages project, `plugins.bitty-terminal.org`
-      domain, and deployment secrets; then activate `deploy.yml`.
-- [ ] Store UX follow-ups: search relevance, kind filters, pagination, and
-      deep-link stability for renamed entries.
+- [ ] Provision the `bitty-plugins` Cloudflare Pages project and the
+      `plugins.bitty.run` custom domain, and confirm the organization
+      `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` variables reach the
+      deploy job; the domain was registered on 2026-09-14 and Cloudflare
+      verification may still be pending.
+- [ ] Store UX follow-ups: search relevance tuning, pagination for a large
+      registry, and deep-link stability for renamed entries.
 - [ ] Add storefront accessibility review evidence (keyboard, contrast,
       screen-reader pass) once content stabilizes.
 

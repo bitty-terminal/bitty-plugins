@@ -1,9 +1,10 @@
 /**
  * Registry index types and read helpers.
  *
- * The store consumes only /registry.json, which is copied from the
- * repository's generated/registry.json at build time. All values are treated
- * as untrusted display data.
+ * The store consumes only `/registry.json`, which `vite.config.ts` serves in
+ * development and emits beside `index.html` at build time from the repository
+ * artifact `generated/registry.json`. All values are treated as untrusted
+ * display data.
  */
 
 export interface Compatibility {
@@ -115,6 +116,12 @@ export function authorsOf(registry: Registry): string[] {
     if (plugin.author) authors.add(plugin.author);
   }
   return [...authors].sort();
+}
+
+export function kindsOf(registry: Registry): string[] {
+  const kinds = new Set<string>();
+  for (const plugin of registry.plugins) kinds.add(plugin.kind);
+  return [...kinds].sort();
 }
 
 export function installCommand(id: string): string {

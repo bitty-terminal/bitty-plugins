@@ -5,7 +5,20 @@ ecosystem.
 
 - Canonical repository:
   [bitty-terminal/bitty-plugins](https://github.com/bitty-terminal/bitty-plugins)
-- Planned store endpoint: <https://plugins.bitty-terminal.org>
+
+## Production URLs
+
+| Surface               | URL                         | Owner                    |
+| --------------------- | --------------------------- | ------------------------ |
+| Product website       | <https://bitty.run>         | `bitty-website` (Astro)  |
+| Plugin registry/store | <https://plugins.bitty.run> | this repository (`app/`) |
+
+The `bitty.run` domain was registered on 2026-09-14; Cloudflare verification
+may still be pending. The organization-level Cloudflare variables
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` exist for CI/CD, but the
+`bitty-plugins` Cloudflare Pages project and the `plugins.bitty.run` custom
+domain must still be provisioned before `deploy.yml` can publish. No
+credentials are committed to the repository.
 
 This repository is pre-implementation. The registry format, validation,
 generation, and the static store prototype exist; the `bitty plugin add <id>`
@@ -18,7 +31,7 @@ behavior. Do not describe the store or CLI as shipped product behavior.
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | `registry/`  | Machine-readable registry entries (official and community), plus the entry schema.                                                |
 | `generated/` | Built artifacts consumed by downstream clients; only `registry.json` today.                                                       |
-| `app/`       | Static store frontend (vanilla TypeScript, Bun build, no server, no framework).                                                   |
+| `app/`       | Static store frontend (Vite + TypeScript, vanilla DOM / Web Components, no framework).                                            |
 | `plugins/`   | Official maintained plugins as pinned Git submodules (known-good set).                                                            |
 | `sdk/`       | Submodule: [bitty-plugin-sdk](https://github.com/bitty-terminal/bitty-plugin-sdk).                                                |
 | `template/`  | Submodule: [bitty-plugin-template](https://github.com/bitty-terminal/bitty-plugin-template).                                      |
@@ -93,6 +106,23 @@ scripts/sync-metadata.ts  (optional, bounded network refresh of manifest metadat
 Both the store frontend and any future CLI consume **only**
 `generated/registry.json`; neither reads `registry/**` directly.
 
+### Store frontend
+
+`app/` is a Vite + TypeScript single-page app built from small custom
+elements (`<plugin-card>`, `<plugin-search>`, `<plugin-filters>`,
+`<plugin-detail>`, `<install-command>`), with no UI framework. It fetches
+`/registry.json`, which `app/vite.config.ts` serves during development and
+emits beside `index.html` at build time, so the deployed site reads the
+committed artifact as a static asset and no second copy lives under `app/`.
+
+Client-side routes (`/`, `/plugins/<id>`, `/categories/<c>`, `/authors/<a>`,
+`/sdk`, `/create-plugin`) use the History API. `app/public/_redirects`
+declares the Cloudflare Pages SPA fallback (`/* /index.html 200`), which
+Cloudflare applies only when no static asset matches the request. Per-route
+HTML generation was not chosen: the registry is fetched at runtime, so
+prerendering would duplicate rendering logic and add build complexity without
+a concrete need today.
+
 ### Install CLI status
 
 `bitty plugin add <id>` is a design proposal for the future package CLI. The
@@ -113,7 +143,9 @@ just test               # registry/tooling test suite (bun test)
 just registry-validate  # validate registry entries (network-guarded)
 just registry-generate  # rebuild generated/registry.json
 just registry-sync      # refresh metadata from bitty-plugin.toml (network, optional)
-just app-build          # build the static store into app/dist
+just app-build          # build the static store into app/dist (Vite)
+just app-dev            # run the Vite dev server for the store
+just app-preview        # build and preview the store locally
 just hooks-install      # install lefthook Git hooks (opt-in per checkout)
 ```
 
@@ -142,18 +174,21 @@ git submodule update --init --recursive
 
 ## Continuous integration
 
-| Workflow                 | Purpose                                                                          |
-| ------------------------ | -------------------------------------------------------------------------------- |
-| `registry-check.yml`     | Validates registry changes and fails when `generated/registry.json` is stale.    |
-| `plugin-integration.yml` | Full quality gates plus an SDK/template/official-plugin integration smoke.       |
-| `deploy.yml`             | Manual, secret-gated build and deployment of `app/` (dormant until provisioned). |
-| `codeql.yml`             | CodeQL analysis for JavaScript/TypeScript and GitHub Actions.                    |
+| Workflow                 | Purpose                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| `registry-check.yml`     | Validates registry changes and fails when `generated/registry.json` is stale.               |
+| `plugin-integration.yml` | Full quality gates plus an SDK/template/official-plugin integration smoke.                  |
+| `deploy.yml`             | Builds `app/` and deploys it to Cloudflare Pages on pushes to `main` and manual dispatches. |
+| `codeql.yml`             | CodeQL analysis for JavaScript/TypeScript and GitHub Actions.                               |
 
-`deploy.yml` targets a Cloudflare Pages project for
-`plugins.bitty-terminal.org`. The Pages project, domain, and
-`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets do not exist yet, so
-the workflow is `workflow_dispatch`-only and fails closed with a clear message
-until an operator provisions them. No credentials are committed.
+`deploy.yml` targets the `bitty-plugins` Cloudflare Pages project for
+`plugins.bitty.run`. It reads `CLOUDFLARE_API_TOKEN` from the repository
+secret of the same name (organization-variable fallback) and
+`CLOUDFLARE_ACCOUNT_ID` from the organization variable. The domain was
+registered on 2026-09-14 and verification may still be pending, so the
+workflow builds the store but skips the deploy step with a clear notice until
+the Pages project and domain are provisioned; it never deploys with partial
+credentials and never stores credentials in the repository.
 
 ## Contributing and security
 

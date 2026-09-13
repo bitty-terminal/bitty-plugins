@@ -1,12 +1,32 @@
 name: Deploy store
 
-# Manual only until the Cloudflare Pages project, the plugins.bitty-terminal.org
-# domain, and the CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID repository
-# secrets exist. Nothing here runs automatically and no credentials are stored
-# in the repository; the workflow fails closed with a clear message when it is
-# dispatched before provisioning is complete.
+# Publishes app/ to the `bitty-plugins` Cloudflare Pages project, which serves
+# the plugin store at https://plugins.bitty.run.
+#
+# Domain facts (owner-provided, 2026-09-14): bitty.run hosts the product
+# website (bitty-website) and plugins.bitty.run hosts this repository's store.
+# The domain is newly registered and Cloudflare verification may still be
+# pending; the Pages project and custom domain are provisioned outside this
+# repository. Organization-level Cloudflare variables CLOUDFLARE_ACCOUNT_ID and
+# CLOUDFLARE_API_TOKEN exist for CI/CD; no credentials are ever committed.
+#
+# Credentials: CLOUDFLARE_API_TOKEN is read from the repository/organization
+# secret first and falls back to the organization variable of the same name;
+# CLOUDFLARE_ACCOUNT_ID is read from the organization variable. The deploy is
+# fail-closed: without both values it is skipped with a clear notice (nothing
+# is ever published with partial credentials) while the build still runs, so
+# pushes to main stay green until provisioning is complete.
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "generated/registry.json"
+      - "justfile"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 permissions:
@@ -23,35 +43,51 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
+    env:
+      # Repository/organization secret first, organization variable fallback.
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
       - name: Install just
         uses: taiki-e/install-action@d438492cf8a250514fa2d34b30bc3c0dc37c65ff # v2
         with:
           tool: just@1.58.0
+
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.0
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
       - name: Build store frontend
         run: just app-build
+
       - name: Check Cloudflare provisioning
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        id: provisioning
         run: |
           if [[ -z "${CLOUDFLARE_API_TOKEN}" || -z "${CLOUDFLARE_ACCOUNT_ID}" ]]; then
-            echo "::error::Cloudflare Pages deployment is not provisioned yet. Create the 'bitty-plugins' Pages project and the plugins.bitty-terminal.org custom domain, then add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets. See README.md (Continuous integration)."
-            exit 1
+            {
+              echo "### Cloudflare deployment skipped"
+              echo ""
+              echo "The \`bitty-plugins\` Pages project and the \`plugins.bitty.run\` custom domain are not fully provisioned yet. The domain was registered on 2026-09-14 and Cloudflare verification may still be pending."
+              echo ""
+              echo "Set \`CLOUDFLARE_API_TOKEN\` (repository secret or organization variable) and the \`CLOUDFLARE_ACCOUNT_ID\` organization variable, then re-run this workflow or push to \`main\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice title=Cloudflare deployment skipped::Cloudflare credentials are absent; the store was built but not deployed."
+            echo "provisioned=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "provisioned=true" >> "$GITHUB_OUTPUT"
           fi
+
       - name: Deploy to Cloudflare Pages
+        if: steps.provisioning.outputs.provisioned == 'true'
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           WRANGLER_SEND_METRICS: "false"
         run: just deploy

@@ -8,7 +8,7 @@
       name="description"
       content="Official plugin directory, registry, and store for the Bitty terminal ecosystem."
     />
-    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
@@ -23,10 +23,10 @@
         </ul>
       </nav>
     </header>
-    <main id="main" tabindex="-1">
+    <main id="main" tabindex="-1" hidden>
       <p>Loading registry…</p>
     </main>
-    <footer>
+    <footer hidden>
       <p>
         Data source: <code>generated/registry.json</code> from
         <a href="https://github.com/bitty-terminal/bitty-plugins"
@@ -35,5 +35,12 @@
         yet.
       </p>
     </footer>
+    <noscript>
+      <p>
+        The plugin directory renders from the registry in your browser and
+        requires JavaScript. The raw index is available at
+        <a href="/registry.json">/registry.json</a>.
+      </p>
+    </noscript>
   </body>
 </html>

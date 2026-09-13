@@ -1,8 +1,9 @@
 /**
- * Minimal history router for the static store.
+ * Minimal History API router for the static store.
  *
- * Cloudflare Pages serves index.html for unknown paths (public/_redirects), so
- * a single bundle handles every route.
+ * Every route is served by the single Vite bundle. `app/public/_redirects`
+ * declares the Cloudflare Pages SPA fallback (`/* /index.html 200`), which
+ * Cloudflare applies only when no static asset matches the request.
  */
 
 export type Route =
