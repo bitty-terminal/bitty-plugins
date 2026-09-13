@@ -1,23 +1,12 @@
 # Dependabot configuration.
 #
-# No npm updater: this repository is bun-managed (package.json + bun.lock) and
-# the npm ecosystem updater is known to misbehave with bun lockfiles. The `bun`
-# ecosystem keeps dev dependencies current; github-actions covers workflow pins.
+# No npm updater: this repository is bun-managed and the npm ecosystem updater
+# is known to misbehave with bun lockfiles. No bun updater either: a trial run
+# on this repository failed in the updater container (2026-09-14); tracked as a
+# follow-up in TODO.md. The github-actions updater remains enabled.
 
 version: 2
 updates:
-  - package-ecosystem: "bun"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "chore"
-    labels:
-      - "dependencies"
-    groups:
-      dependencies:
-        patterns:
-          - "*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

@@ -30,6 +30,12 @@ become an Issue and CarryCtx task in the owning repository before work starts.
 - [ ] Decide the official plugin onboarding order and add the remaining
       first-party wave plugins as pinned submodules.
 
+## Tooling
+
+- [ ] Re-test the Dependabot `bun` ecosystem updater (removed 2026-09-14 after
+      a failed trial run) and re-enable it if it becomes reliable; the
+      devDependencies currently have no automated updates.
+
 ## Ecosystem
 
 - [ ] Create the `beacon` repository (next official plugin) and register it.
