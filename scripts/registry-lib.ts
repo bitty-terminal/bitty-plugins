@@ -537,6 +537,145 @@ export function repositoryName(repository: string): string {
   }
 }
 
+export interface SubmoduleEntry {
+  /** Submodule name from the `[submodule "<name>"]` header. */
+  name: string;
+  /** Declared checkout path, for example `plugins/activity`. */
+  path: string;
+  /** Declared clone URL. */
+  url: string;
+  /** Declared tracking branch, when present. */
+  branch?: string;
+}
+
+/**
+ * Parse `.gitmodules` INI content into submodule entries.
+ *
+ * Minimal hand-rolled parser (no new dependencies): only
+ * `[submodule "..."]` sections with `path`, `url`, and optional `branch`
+ * keys are collected; every other section or key is ignored. Never throws on
+ * malformed input; sections missing `path` or `url` are dropped.
+ */
+export function parseGitmodules(text: string): SubmoduleEntry[] {
+  const entries: SubmoduleEntry[] = [];
+  let current: SubmoduleEntry | null = null;
+  const push = (): void => {
+    if (current !== null && current.path.length > 0 && current.url.length > 0) {
+      entries.push(current);
+    }
+    current = null;
+  };
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trim();
+    if (line.length === 0 || line.startsWith("#") || line.startsWith(";")) {
+      continue;
+    }
+    const section = line.match(/^\[submodule\s+"([^"]+)"\]$/);
+    const sectionName = section?.[1];
+    if (sectionName !== undefined) {
+      push();
+      current = { name: sectionName, path: "", url: "" };
+      continue;
+    }
+    if (line.startsWith("[")) {
+      push();
+      continue;
+    }
+    if (current === null) continue;
+    const assignment = line.match(/^([A-Za-z]+)\s*=\s*(.+)$/);
+    const key = assignment?.[1];
+    const value = assignment?.[2];
+    if (key === undefined || value === undefined) continue;
+    const unquoted = value
+      .trim()
+      .replace(/^"(.*)"$/, "$1")
+      .trim();
+    if (key === "path") current.path = unquoted;
+    else if (key === "url") current.url = unquoted;
+    else if (key === "branch") current.branch = unquoted;
+  }
+  push();
+  return entries;
+}
+
+/**
+ * Normalize a repository or submodule URL for comparison. Trailing slashes
+ * and a trailing `.git` suffix are deployment details, not identity, so they
+ * are ignored; everything else compares exactly.
+ */
+export function normalizeRepositoryUrl(url: string): string {
+  return url
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\.git$/, "");
+}
+
+/**
+ * Static offline consistency checks between official registry entries and the
+ * `plugins/` submodule pins declared in `.gitmodules`.
+ *
+ * (1) every official entry needs a `plugins/<name>` submodule, where `<name>`
+ * is the repository basename; (2) the submodule URL must match the entry
+ * `repository` field; (3) `plugins/<name>` submodules or directories with no
+ * official entry are reported. Pure and offline: callers supply the parsed
+ * `.gitmodules` entries and the observed `plugins/` directory names, so unit
+ * tests never touch the filesystem or the network.
+ */
+export function checkSubmoduleConsistency(
+  entries: LoadedEntry[],
+  submodules: SubmoduleEntry[],
+  pluginDirs: string[],
+): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  const byPath = new Map<string, SubmoduleEntry>();
+  for (const submodule of submodules) {
+    if (!byPath.has(submodule.path)) byPath.set(submodule.path, submodule);
+  }
+  const claimed = new Set<string>();
+  for (const { entry, file, official } of entries) {
+    if (!official) continue;
+    const name = repositoryName(entry.repository);
+    if (name.length === 0) continue;
+    claimed.add(name);
+    const path = `plugins/${name}`;
+    const submodule = byPath.get(path);
+    if (submodule === undefined) {
+      diagnostics.push({
+        severity: "error",
+        file,
+        message: `official entry has no "${path}" submodule declared in .gitmodules`,
+      });
+      continue;
+    }
+    if (
+      normalizeRepositoryUrl(submodule.url) !==
+      normalizeRepositoryUrl(entry.repository)
+    ) {
+      diagnostics.push({
+        severity: "error",
+        file,
+        message: `"${path}" submodule URL "${submodule.url}" does not match registry repository "${entry.repository}"`,
+      });
+    }
+  }
+  const candidates = new Set<string>();
+  for (const submodule of submodules) {
+    const rest = submodule.path.match(/^plugins\/([^/]+)$/)?.[1];
+    if (rest !== undefined) candidates.add(rest);
+  }
+  for (const dir of pluginDirs) candidates.add(dir);
+  for (const name of [...candidates].sort()) {
+    if (!claimed.has(name)) {
+      diagnostics.push({
+        severity: "warning",
+        file: "plugins/",
+        message: `plugins/${name} has no official registry entry (add registry/official/${name}.toml or remove the directory)`,
+      });
+    }
+  }
+  return diagnostics;
+}
+
 /** Parse the generated index, returning null when missing or malformed. */
 export function parseIndex(text: string): RegistryIndex | null {
   try {

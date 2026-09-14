@@ -3,18 +3,21 @@
  *
  * Checks: schema shape and key policy, duplicate ids, community file naming,
  * repository URL format and (bounded, network-guarded) existence, local
- * official-plugin manifest consistency, optional SDK manifest tooling, SPDX
- * license syntax, and compatibility range syntax. Exits non-zero when any
- * error is found; warnings alone do not fail.
+ * official-plugin manifest consistency, official entry to plugins/ submodule
+ * mapping (static, offline), optional SDK manifest tooling, SPDX license
+ * syntax, and compatibility range syntax. Exits non-zero when any error is
+ * found; warnings alone do not fail.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   REPO_ROOT,
+  checkSubmoduleConsistency,
   countSeverity,
   formatDiagnostic,
   loadEntries,
+  parseGitmodules,
   repositoryName,
   validateEntry,
   validateRawKeys,
@@ -244,6 +247,37 @@ function printDiagnostics(
   );
 }
 
+/**
+ * Static offline check: every official entry maps to a plugins/ submodule
+ * whose URL matches the entry repository, and stray plugins/ directories are
+ * reported. Reads only `.gitmodules` and the `plugins/` directory listing,
+ * so it runs identically online and offline, including with `--skip-network`.
+ */
+function checkSubmoduleMapping(entries: LoadedEntry[]): Diagnostic[] {
+  let gitmodules = "";
+  try {
+    gitmodules = readFileSync(join(REPO_ROOT, ".gitmodules"), "utf8");
+  } catch {
+    gitmodules = "";
+  }
+  let pluginDirs: string[] = [];
+  try {
+    const pluginsDir = join(REPO_ROOT, "plugins");
+    if (existsSync(pluginsDir)) {
+      pluginDirs = readdirSync(pluginsDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name);
+    }
+  } catch {
+    pluginDirs = [];
+  }
+  return checkSubmoduleConsistency(
+    entries,
+    parseGitmodules(gitmodules),
+    pluginDirs,
+  );
+}
+
 async function main(): Promise<number> {
   const args = process.argv.slice(2);
   if (args.includes("--help") || args.includes("-h")) {
@@ -259,6 +293,7 @@ async function main(): Promise<number> {
   }
   diagnostics.push(...validateRegistry(entries));
   diagnostics.push(...checkLocalManifests(entries));
+  diagnostics.push(...checkSubmoduleMapping(entries));
   if (skipNetwork) {
     console.log("notice: repository existence checks skipped (--skip-network)");
   } else {

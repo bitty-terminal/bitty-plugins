@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import {
   buildIndex,
   checkLicense,
+  checkSubmoduleConsistency,
   loadEntries,
+  normalizeRepositoryUrl,
+  parseGitmodules,
   parseIndex,
   renderIndex,
   repositoryName,
@@ -12,6 +15,7 @@ import {
   type LoadedEntry,
   type RegistryEntry,
   type RegistryIndex,
+  type SubmoduleEntry,
 } from "../scripts/registry-lib.ts";
 import { isValidVersionRange } from "../scripts/semver.ts";
 
@@ -183,6 +187,196 @@ describe("registry-wide validation", () => {
     ]);
     expect(
       official.filter((diagnostic) => diagnostic.severity === "error"),
+    ).toEqual([]);
+  });
+});
+
+describe("gitmodules parsing", () => {
+  test("parses submodule paths, urls, and branches", () => {
+    const submodules = parseGitmodules(
+      [
+        '[submodule "plugins/activity"]',
+        "\tpath = plugins/activity",
+        "\turl = https://github.com/bitty-terminal/activity",
+        '[submodule "docs"]',
+        "\tpath = docs",
+        '\turl = "https://github.com/bitty-terminal/bitty-plugins-docs"',
+        "\tbranch = main",
+        "",
+      ].join("\n"),
+    );
+    expect(submodules).toEqual([
+      {
+        name: "plugins/activity",
+        path: "plugins/activity",
+        url: "https://github.com/bitty-terminal/activity",
+      },
+      {
+        name: "docs",
+        path: "docs",
+        url: "https://github.com/bitty-terminal/bitty-plugins-docs",
+        branch: "main",
+      },
+    ]);
+  });
+
+  test("ignores other sections, comments, and sections missing path or url", () => {
+    const submodules = parseGitmodules(
+      [
+        "# a comment",
+        "; another comment",
+        "[core]",
+        "\trepositoryformatversion = 0",
+        '[submodule "broken"]',
+        "\tpath = plugins/broken",
+        '[submodule "other"]',
+        "\tpath = plugins/other",
+        "\turl = https://example.com/other",
+        "\tnot-a-key without equals",
+        "malformed line",
+        "",
+      ].join("\n"),
+    );
+    expect(submodules).toEqual([
+      {
+        name: "other",
+        path: "plugins/other",
+        url: "https://example.com/other",
+      },
+    ]);
+  });
+
+  test("normalizes repository urls for comparison", () => {
+    expect(
+      normalizeRepositoryUrl("https://github.com/bitty-terminal/activity"),
+    ).toBe(
+      normalizeRepositoryUrl("https://github.com/bitty-terminal/activity.git"),
+    );
+    expect(
+      normalizeRepositoryUrl("https://github.com/bitty-terminal/activity/"),
+    ).toBe("https://github.com/bitty-terminal/activity");
+    expect(
+      normalizeRepositoryUrl("https://github.com/bitty-terminal/activity"),
+    ).not.toBe(
+      normalizeRepositoryUrl("https://github.com/bitty-terminal/other"),
+    );
+  });
+});
+
+describe("official entry to submodule mapping", () => {
+  const officialEntry: RegistryEntry = {
+    ...baseEntry,
+    id: "example.sample",
+    repository: "https://github.com/example/sample-plugin",
+  };
+
+  function officialLoaded(entry: RegistryEntry = officialEntry): LoadedEntry {
+    return loaded(entry, "registry/official/sample-plugin.toml", true);
+  }
+
+  function submodule(
+    path: string,
+    url = "https://github.com/example/sample-plugin",
+  ): SubmoduleEntry {
+    return { name: path, path, url };
+  }
+
+  test("passes when entries and submodules agree", () => {
+    expect(
+      checkSubmoduleConsistency(
+        [officialLoaded()],
+        [submodule("plugins/sample-plugin")],
+        ["sample-plugin"],
+      ),
+    ).toEqual([]);
+  });
+
+  test("accepts .git-suffixed submodule urls as the same repository", () => {
+    expect(
+      checkSubmoduleConsistency(
+        [officialLoaded()],
+        [
+          submodule(
+            "plugins/sample-plugin",
+            "https://github.com/example/sample-plugin.git",
+          ),
+        ],
+        [],
+      ),
+    ).toEqual([]);
+  });
+
+  test("errors when the submodule is missing or the url mismatches", () => {
+    const missing = checkSubmoduleConsistency([officialLoaded()], [], []);
+    expect(
+      missing.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes("plugins/sample-plugin") &&
+          diagnostic.message.includes(".gitmodules"),
+      ),
+    ).toBe(true);
+
+    const mismatched = checkSubmoduleConsistency(
+      [officialLoaded()],
+      [submodule("plugins/sample-plugin", "https://github.com/example/other")],
+      [],
+    );
+    expect(
+      mismatched.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes("does not match"),
+      ),
+    ).toBe(true);
+  });
+
+  test("warns on plugin submodules and directories without an entry", () => {
+    const diagnostics = checkSubmoduleConsistency(
+      [officialLoaded()],
+      [
+        submodule("plugins/sample-plugin"),
+        submodule("plugins/orphan", "https://github.com/example/orphan"),
+      ],
+      ["sample-plugin", "stray-dir"],
+    );
+    const warnings = diagnostics.filter(
+      (diagnostic) => diagnostic.severity === "warning",
+    );
+    expect(
+      warnings.some((diagnostic) =>
+        diagnostic.message.includes("plugins/orphan"),
+      ),
+    ).toBe(true);
+    expect(
+      warnings.some((diagnostic) =>
+        diagnostic.message.includes("plugins/stray-dir"),
+      ),
+    ).toBe(true);
+    expect(
+      warnings.some((diagnostic) =>
+        diagnostic.message.includes("plugins/sample-plugin"),
+      ),
+    ).toBe(false);
+    expect(
+      diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    ).toBe(false);
+  });
+
+  test("ignores community entries, non-plugin submodules, and bad urls", () => {
+    expect(
+      checkSubmoduleConsistency(
+        [loaded(baseEntry)],
+        [submodule("sdk"), submodule("docs")],
+        [],
+      ),
+    ).toEqual([]);
+    expect(
+      checkSubmoduleConsistency(
+        [officialLoaded({ ...officialEntry, repository: "not-a-url" })],
+        [],
+        [],
+      ),
     ).toEqual([]);
   });
 });

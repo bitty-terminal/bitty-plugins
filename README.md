@@ -113,7 +113,7 @@ sdk = "^0.1" # optional SDK range
 
 ```text
 registry/**/*.toml
-        |  scripts/validate-registry.ts   (schema, duplicates, URLs, licenses, ranges)
+        |  scripts/validate-registry.ts   (schema, duplicates, URLs, submodule mapping, licenses, ranges)
         v
 scripts/generate-index.ts                (deterministic merge)
         |
@@ -162,7 +162,7 @@ just fmt                # format files with Prettier (writes)
 just lint               # Markdown lint (markdownlint-cli2)
 just type-check         # TypeScript, scripts/ and app/
 just test               # registry/tooling test suite (bun test)
-just registry-validate  # validate registry entries (network-guarded)
+just registry-validate  # validate registry entries (submodule mapping always; rest network-guarded)
 just registry-generate  # rebuild generated/registry.json
 just registry-sync      # refresh metadata from bitty-plugin.toml (network, optional)
 just app-build          # build the static store into app/dist (Vite)
@@ -187,7 +187,10 @@ git submodule update --init --recursive
 ```
 
 - `plugins/` contains official plugins only. Community entries are data, not
-  code, and never become submodules.
+  code, and never become submodules. Every `registry/official/<name>.toml`
+  entry must have a matching `plugins/<name>` submodule whose URL equals the
+  entry `repository` field; `just registry-validate` enforces this offline and
+  reports `plugins/<name>` directories with no official entry.
 - `docs/` mounts the canonical
   [bitty-plugins-docs](https://github.com/bitty-terminal/bitty-plugins-docs)
   corpus, pinned by commit. Bump it with `git submodule update --remote docs`,
