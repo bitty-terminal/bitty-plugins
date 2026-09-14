@@ -56,6 +56,28 @@ SDK and template implementations (their own repositories).
   `official: true` in the generated index. The distinction is derived from the
   entry location, never declared inside the entry.
 
+## Maintaining the registry
+
+The canonical rules live in the
+[official plugin onboarding policy](https://github.com/bitty-terminal/bitty-plugins-docs/blob/main/product/official-plugin-onboarding.md)
+in `bitty-plugins-docs` (the mounted `docs/` copy updates at the next submodule
+bump). Maintainers run the same mechanical steps:
+
+1. Edit or add the entry under `registry/official/` or `registry/community/`;
+   entries stay minimal and `generated/registry.json` is never hand-edited.
+2. Regenerate the index: `just registry-generate`.
+3. Validate entries (schema, duplicate ids, repository URLs, licenses,
+   compatibility ranges): `just registry-validate`; add `--skip-network` for
+   hermetic runs.
+4. Confirm the index is fresh: `just registry-check`.
+5. Run the full gate set: `just check`.
+
+Official plugin submodules must pin a commit reachable from the plugin
+repository's mainline (default branch). Never pin a feature-branch commit or an
+unmerged commit; a pointer bump is a reviewed change. The policy owns the
+registration checklist, the bundled-split order of operations, and the
+maintenance rules.
+
 ## Registry model
 
 Registry entries are deliberately minimal. A source file declares only
