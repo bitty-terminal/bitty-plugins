@@ -11,3 +11,6 @@
 	path = docs
 	url = https://github.com/bitty-terminal/bitty-plugins-docs
 	branch = main
+[submodule "plugins/palette"]
+	path = plugins/palette
+	url = https://github.com/bitty-terminal/palette

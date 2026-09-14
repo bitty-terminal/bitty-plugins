@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-13T18:27:40Z",
+  "generated_at": "2026-09-14T04:10:53Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -21,6 +21,29 @@
       "license": "MIT",
       "compatibility": {
         "bitty": ">=0.5,<1.0",
+        "sdk": "^0.1"
+      }
+    },
+    {
+      "id": "bitty-terminal.palette",
+      "name": "Palette",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/palette",
+      "official": true,
+      "author": "bitty-terminal",
+      "description": "Command palette and picker UI via overlay slot, declarative primitives only.",
+      "tags": [
+        "command-palette",
+        "overlay",
+        "palette",
+        "picker"
+      ],
+      "categories": [
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.1,<1.0",
         "sdk": "^0.1"
       }
     }
