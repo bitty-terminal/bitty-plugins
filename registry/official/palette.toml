@@ -1,0 +1,19 @@
+# Official registry entry: Bitty Palette.
+#
+# Hand-maintained identity data only. Derived metadata (version, stars, dates,
+# downloads) is intentionally absent; `just registry-sync` mirrors the plugin's
+# bitty-plugin.toml into the optional `metadata` object of the generated index.
+
+id = "bitty-terminal.palette"
+name = "Palette"
+repository = "https://github.com/bitty-terminal/palette"
+kind = "plugin"
+author = "bitty-terminal"
+description = "Command palette and picker UI via overlay slot, declarative primitives only."
+tags = ["palette", "command-palette", "picker", "overlay"]
+categories = ["productivity"]
+license = "MIT"
+
+[compatibility]
+bitty = ">=0.1,<1.0"
+sdk = "^0.1"
