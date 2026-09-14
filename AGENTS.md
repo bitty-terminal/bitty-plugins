@@ -64,7 +64,11 @@
   generated artifact. Never hand-edit `generated/registry.json`; run
   `just registry-generate`.
 - Official plugins are pinned submodules under `plugins/`; updating one means
-  bumping the submodule pointer in a reviewed change.
+  bumping the submodule pointer in a reviewed change. The pointer must pin a
+  commit reachable from the plugin repository's mainline (default branch);
+  never pin a feature-branch or unmerged commit. The canonical onboarding,
+  compatibility, and maintenance rules live in `bitty-plugins-docs`
+  `product/official-plugin-onboarding.md`, mounted at `docs/`.
 - `sdk/`, `template/`, and `docs/` are submodules too, but they are not
   plugins: `docs/` mounts the canonical `bitty-plugins-docs` corpus (initialize
   with `git submodule update --init`; bump with `git submodule update --remote
