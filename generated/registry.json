@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-14T04:10:53Z",
+  "generated_at": "2026-09-14T05:15:33Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -37,6 +37,29 @@
         "overlay",
         "palette",
         "picker"
+      ],
+      "categories": [
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.1,<1.0",
+        "sdk": "^0.1"
+      }
+    },
+    {
+      "id": "bitty-terminal.statusline",
+      "name": "Statusline",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/statusline",
+      "official": true,
+      "author": "bitty-terminal",
+      "description": "Cwd, mode, Git and task presentation via status-component composition.",
+      "tags": [
+        "cwd",
+        "shell",
+        "status-bar",
+        "statusline"
       ],
       "categories": [
         "productivity"
