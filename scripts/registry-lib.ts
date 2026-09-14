@@ -676,6 +676,203 @@ export function checkSubmoduleConsistency(
   return diagnostics;
 }
 
+/** An official plugin submodule pin resolved from the working tree. */
+export interface OfficialPin {
+  /** Plugin directory name, for example `activity` (`plugins/activity`). */
+  name: string;
+  /** Pinned commit SHA recorded by git for `plugins/<name>`. */
+  pin: string;
+  /** Registry `repository` URL of the official entry. */
+  repository: string;
+  /** Registry entry file, used for diagnostics. */
+  file: string;
+}
+
+/**
+ * Collect official pins that have a matching `plugins/<name>` submodule.
+ * Entries without a submodule are skipped silently here: the offline mapping
+ * check in `checkSubmoduleConsistency` already reports them, and the pin
+ * check must not double-report.
+ */
+export function collectOfficialPins(
+  entries: LoadedEntry[],
+  submodules: SubmoduleEntry[],
+): OfficialPin[] {
+  const paths = new Set(submodules.map((submodule) => submodule.path));
+  const pins: OfficialPin[] = [];
+  for (const { entry, file, official } of entries) {
+    if (!official) continue;
+    const name = repositoryName(entry.repository);
+    if (name.length === 0) continue;
+    if (!paths.has(`plugins/${name}`)) continue;
+    pins.push({ name, pin: "", repository: entry.repository, file });
+  }
+  return pins;
+}
+
+/** GitHub `owner/repo` slug parsed from a registry repository URL. */
+export interface GitHubSlug {
+  owner: string;
+  repo: string;
+}
+
+/**
+ * Parse a `https://github.com/<owner>/<repo>` repository URL into its slug.
+ * Returns null for other hosts, short paths, and malformed URLs; a trailing
+ * `.git` suffix on the repo segment is tolerated.
+ */
+export function githubRepoSlug(repository: string): GitHubSlug | null {
+  try {
+    const url = new URL(repository);
+    if (url.hostname !== "github.com" && url.hostname !== "www.github.com") {
+      return null;
+    }
+    const segments = url.pathname.split("/").filter(Boolean);
+    const owner = segments[0];
+    const repo = segments[1];
+    if (owner === undefined || repo === undefined || segments.length !== 2) {
+      return null;
+    }
+    return { owner, repo: repo.replace(/\.git$/, "") };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * GitHub compare `status` values for `base...head`, where `base` is the
+ * submodule pin and `head` is the default-branch tip.
+ */
+export type CompareStatus = "ahead" | "behind" | "identical" | "diverged";
+
+/**
+ * Decide whether a submodule pin is a mainline commit from a compare status.
+ * `ahead` (the tip contains the pin) and `identical` (the pin is the tip)
+ * prove the pin is an ancestor of the default branch; `behind` and
+ * `diverged` prove it is not.
+ */
+export function isPinReachable(status: CompareStatus): boolean {
+  return status === "ahead" || status === "identical";
+}
+
+export interface PinCheckRequest extends OfficialPin {}
+
+/** Outcome of the bounded pin reachability phase. */
+export interface PinCheckOutcome {
+  diagnostics: Diagnostic[];
+  /** Human-readable notices the caller prints (offline, skips, budgets). */
+  notices: string[];
+  /** True when the phase stopped early; later pins were not checked. */
+  halted: boolean;
+}
+
+/**
+ * Network and git access needed by the pin reachability phase, injected so
+ * unit tests can stub every path (including offline) without I/O.
+ */
+export interface PinCheckPorts {
+  /**
+   * Resolve the default-branch tip SHA for a repository URL (for example via
+   * `git ls-remote <url> HEAD`). Return null when the tip cannot be
+   * determined; throw only to signal the network is unavailable.
+   */
+  resolveDefaultTip: (repository: string) => Promise<string | null>;
+  /**
+   * Compare a pin against the default-branch tip. Return the compare status,
+   * or `httpStatus` for non-OK HTTP responses. Throw only to signal the
+   * network is unavailable.
+   */
+  comparePinToTip: (
+    slug: GitHubSlug,
+    base: string,
+    head: string,
+  ) => Promise<{ status?: CompareStatus; httpStatus?: number }>;
+}
+
+/**
+ * Bounded mainline reachability check over official submodule pins.
+ *
+ * For each pin, resolves the default-branch tip and compares `pin...tip`:
+ * `ahead`/`identical` pass, `behind`/`diverged` and unknown pins (HTTP 404)
+ * fail, other HTTP failures warn, unsupported hosts are skipped with a
+ * notice, and the first offline signal halts the phase with a notice
+ * (consistent with the existing repository existence guard). Exceeding
+ * `budgetMs` also halts with a notice. Pure apart from the injected ports.
+ */
+export async function checkPinReachability(
+  requests: PinCheckRequest[],
+  ports: PinCheckPorts,
+  budgetMs: number,
+  started = Date.now(),
+): Promise<PinCheckOutcome> {
+  const diagnostics: Diagnostic[] = [];
+  const notices: string[] = [];
+  for (const request of requests) {
+    if (Date.now() - started > budgetMs) {
+      notices.push(
+        "notice: pin reachability budget exhausted; skipping remaining pin checks",
+      );
+      return { diagnostics, notices, halted: true };
+    }
+    const slug = githubRepoSlug(request.repository);
+    if (slug === null) {
+      notices.push(
+        `notice: ${request.file}: pin reachability is not supported for this host; skipping`,
+      );
+      continue;
+    }
+    let tip: string | null;
+    try {
+      tip = await ports.resolveDefaultTip(request.repository);
+    } catch (error) {
+      notices.push(
+        `notice: network unavailable (${error instanceof Error ? error.message : String(error)}); skipping remaining pin reachability checks`,
+      );
+      return { diagnostics, notices, halted: true };
+    }
+    if (tip === null) {
+      notices.push(
+        `notice: network unavailable (cannot resolve default branch for ${request.repository}); skipping remaining pin reachability checks`,
+      );
+      return { diagnostics, notices, halted: true };
+    }
+    if (request.pin === tip) continue;
+    let compared: { status?: CompareStatus; httpStatus?: number };
+    try {
+      compared = await ports.comparePinToTip(slug, request.pin, tip);
+    } catch (error) {
+      notices.push(
+        `notice: network unavailable (${error instanceof Error ? error.message : String(error)}); skipping remaining pin reachability checks`,
+      );
+      return { diagnostics, notices, halted: true };
+    }
+    if (compared.status !== undefined) {
+      if (!isPinReachable(compared.status)) {
+        diagnostics.push({
+          severity: "error",
+          file: request.file,
+          message: `plugins/${request.name} pin ${request.pin} is not reachable from the default branch (compare status "${compared.status}")`,
+        });
+      }
+      continue;
+    }
+    if (compared.httpStatus === 404) {
+      diagnostics.push({
+        severity: "error",
+        file: request.file,
+        message: `plugins/${request.name} pin ${request.pin} was not found in ${request.repository}`,
+      });
+      continue;
+    }
+    diagnostics.push({
+      severity: "warning",
+      file: request.file,
+      message: `pin reachability check for plugins/${request.name} returned HTTP ${compared.httpStatus ?? "unknown"}; skipping`,
+    });
+  }
+  return { diagnostics, notices, halted: false };
+}
+
 /** Parse the generated index, returning null when missing or malformed. */
 export function parseIndex(text: string): RegistryIndex | null {
   try {

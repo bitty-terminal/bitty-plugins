@@ -4,16 +4,19 @@
  * Checks: schema shape and key policy, duplicate ids, community file naming,
  * repository URL format and (bounded, network-guarded) existence, local
  * official-plugin manifest consistency, official entry to plugins/ submodule
- * mapping (static, offline), optional SDK manifest tooling, SPDX license
- * syntax, and compatibility range syntax. Exits non-zero when any error is
- * found; warnings alone do not fail.
+ * mapping (static, offline), submodule pin mainline reachability (bounded,
+ * network-guarded), optional SDK manifest tooling, SPDX license syntax, and
+ * compatibility range syntax. Exits non-zero when any error is found;
+ * warnings alone do not fail.
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   REPO_ROOT,
+  checkPinReachability,
   checkSubmoduleConsistency,
+  collectOfficialPins,
   countSeverity,
   formatDiagnostic,
   loadEntries,
@@ -22,18 +25,25 @@ import {
   validateEntry,
   validateRawKeys,
   validateRegistry,
+  type CompareStatus,
   type Diagnostic,
+  type GitHubSlug,
   type LoadedEntry,
+  type SubmoduleEntry,
 } from "./registry-lib.ts";
 
 const NETWORK_TIMEOUT_MS = 5000;
 const SDK_TIMEOUT_MS = 20000;
 const SDK_INSTALL_TIMEOUT_MS = 120000;
+const PIN_COMPARE_TIMEOUT_MS = 10000;
+const PIN_LS_REMOTE_TIMEOUT_MS = 15000;
+const PIN_GIT_TIMEOUT_MS = 15000;
+const PIN_CHECK_BUDGET_MS = 60000;
 
 const USAGE = `usage: bun scripts/validate-registry.ts [--skip-network]
 
 Validates registry/official/*.toml and registry/community/*.toml.
-  --skip-network   skip repository existence checks (also REGISTRY_SKIP_NETWORK=1)
+  --skip-network   skip repository existence and pin reachability checks (also REGISTRY_SKIP_NETWORK=1)
 `;
 
 function skipNetworkRequested(args: string[]): boolean {
@@ -248,12 +258,15 @@ function printDiagnostics(
 }
 
 /**
- * Static offline check: every official entry maps to a plugins/ submodule
- * whose URL matches the entry repository, and stray plugins/ directories are
- * reported. Reads only `.gitmodules` and the `plugins/` directory listing,
- * so it runs identically online and offline, including with `--skip-network`.
+ * Load the static submodule state both offline phases share: parsed
+ * `.gitmodules` entries and observed `plugins/` directory names. Missing or
+ * unreadable inputs degrade to empty lists so each phase reports its own
+ * precise diagnostics instead of crashing.
  */
-function checkSubmoduleMapping(entries: LoadedEntry[]): Diagnostic[] {
+function loadSubmoduleState(): {
+  submodules: SubmoduleEntry[];
+  pluginDirs: string[];
+} {
   let gitmodules = "";
   try {
     gitmodules = readFileSync(join(REPO_ROOT, ".gitmodules"), "utf8");
@@ -271,11 +284,147 @@ function checkSubmoduleMapping(entries: LoadedEntry[]): Diagnostic[] {
   } catch {
     pluginDirs = [];
   }
-  return checkSubmoduleConsistency(
-    entries,
-    parseGitmodules(gitmodules),
-    pluginDirs,
+  return { submodules: parseGitmodules(gitmodules), pluginDirs };
+}
+
+/**
+ * Static offline check: every official entry maps to a plugins/ submodule
+ * whose URL matches the entry repository, and stray plugins/ directories are
+ * reported. Reads only `.gitmodules` and the `plugins/` directory listing,
+ * so it runs identically online and offline, including with `--skip-network`.
+ */
+function checkSubmoduleMapping(entries: LoadedEntry[]): Diagnostic[] {
+  const { submodules, pluginDirs } = loadSubmoduleState();
+  return checkSubmoduleConsistency(entries, submodules, pluginDirs);
+}
+
+/**
+ * Read recorded submodule pins (`plugins/<name>` to commit SHA) from
+ * `git submodule status`, which works without initialized submodules.
+ * Returns null when git cannot report the pins.
+ */
+function readSubmodulePins(): Map<string, string> | null {
+  const result = Bun.spawnSync({
+    cmd: ["git", "submodule", "status"],
+    cwd: REPO_ROOT,
+    stdout: "pipe",
+    stderr: "pipe",
+    timeout: PIN_GIT_TIMEOUT_MS,
+  });
+  if (result.exitCode !== 0) return null;
+  const pins = new Map<string, string>();
+  for (const line of result.stdout.toString().split("\n")) {
+    const match = line.match(/^[ +\-U]([0-9a-f]{40}) (\S+)/);
+    const sha = match?.[1];
+    const path = match?.[2];
+    if (sha !== undefined && path !== undefined) pins.set(path, sha);
+  }
+  return pins;
+}
+
+/**
+ * Resolve a repository's default-branch tip SHA with `git ls-remote <url>
+ * HEAD`. Returns null when the tip cannot be determined (offline, unknown
+ * ref, or git failure); the caller treats that as an offline halt.
+ */
+async function resolveDefaultTipWithGit(
+  repository: string,
+): Promise<string | null> {
+  const result = Bun.spawnSync({
+    cmd: ["git", "ls-remote", repository, "HEAD"],
+    stdout: "pipe",
+    stderr: "pipe",
+    timeout: PIN_LS_REMOTE_TIMEOUT_MS,
+  });
+  if (result.exitCode !== 0) return null;
+  return result.stdout.toString().match(/([0-9a-f]{40})\s+HEAD/)?.[1] ?? null;
+}
+
+/**
+ * Compare a submodule pin against the default-branch tip via the credential-
+ * free GitHub compare API. Non-OK responses surface as `httpStatus`; network
+ * failures throw so the caller can halt with an offline notice.
+ */
+async function comparePinToTipWithApi(
+  slug: GitHubSlug,
+  base: string,
+  head: string,
+): Promise<{ status?: CompareStatus; httpStatus?: number }> {
+  const url = `https://api.github.com/repos/${slug.owner}/${slug.repo}/compare/${base}...${head}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PIN_COMPARE_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "bitty-plugins-registry-validate",
+        Accept: "application/vnd.github+json",
+      },
+      redirect: "follow",
+      signal: controller.signal,
+    });
+    if (!response.ok) return { httpStatus: response.status };
+    const body = (await response.json()) as { status?: unknown };
+    if (
+      body.status === "ahead" ||
+      body.status === "behind" ||
+      body.status === "identical" ||
+      body.status === "diverged"
+    ) {
+      return { status: body.status };
+    }
+    return { httpStatus: response.status };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Bounded mainline reachability phase: prove every official plugins/<name>
+ * pin is an ancestor of the plugin default branch. Degrades gracefully
+ * offline with a notice, consistent with the repository existence guard.
+ */
+async function checkSubmodulePinsReachable(
+  entries: LoadedEntry[],
+): Promise<Diagnostic[]> {
+  const { submodules } = loadSubmoduleState();
+  const pins = collectOfficialPins(entries, submodules);
+  if (pins.length === 0) return [];
+  const pinShas = readSubmodulePins();
+  if (pinShas === null) {
+    console.log(
+      "notice: cannot determine submodule pins (git submodule status failed); skipping pin reachability checks",
+    );
+    return [];
+  }
+  const diagnostics: Diagnostic[] = [];
+  const requests: {
+    name: string;
+    pin: string;
+    repository: string;
+    file: string;
+  }[] = [];
+  for (const pin of pins) {
+    const sha = pinShas.get(`plugins/${pin.name}`);
+    if (sha === undefined) {
+      diagnostics.push({
+        severity: "warning",
+        file: pin.file,
+        message: `plugins/${pin.name} is declared in .gitmodules but has no recorded pin; skipping reachability`,
+      });
+      continue;
+    }
+    requests.push({ ...pin, pin: sha });
+  }
+  const outcome = await checkPinReachability(
+    requests,
+    {
+      resolveDefaultTip: resolveDefaultTipWithGit,
+      comparePinToTip: comparePinToTipWithApi,
+    },
+    PIN_CHECK_BUDGET_MS,
   );
+  for (const notice of outcome.notices) console.log(notice);
+  return [...diagnostics, ...outcome.diagnostics];
 }
 
 async function main(): Promise<number> {
@@ -296,8 +445,12 @@ async function main(): Promise<number> {
   diagnostics.push(...checkSubmoduleMapping(entries));
   if (skipNetwork) {
     console.log("notice: repository existence checks skipped (--skip-network)");
+    console.log(
+      "notice: submodule pin reachability checks skipped (--skip-network)",
+    );
   } else {
     diagnostics.push(...(await checkRepositoriesOnline(entries)));
+    diagnostics.push(...(await checkSubmodulePinsReachable(entries)));
   }
   const errors = countSeverity(diagnostics, "error");
   const warnings = countSeverity(diagnostics, "warning");
