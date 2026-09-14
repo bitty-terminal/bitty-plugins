@@ -113,7 +113,7 @@ sdk = "^0.1" # optional SDK range
 
 ```text
 registry/**/*.toml
-        |  scripts/validate-registry.ts   (schema, duplicates, URLs, submodule mapping, licenses, ranges)
+        |  scripts/validate-registry.ts   (schema, duplicates, URLs, submodule mapping, pin reachability, licenses, ranges)
         v
 scripts/generate-index.ts                (deterministic merge)
         |
@@ -173,7 +173,8 @@ just hooks-install      # install lefthook Git hooks (opt-in per checkout)
 
 Use `--skip-network` with `just registry-validate --skip-network` (or
 `REGISTRY_SKIP_NETWORK=1`) for hermetic runs; with no network the validator
-prints a notice and continues with static checks only.
+prints a notice and continues with static checks only (repository existence
+and pin reachability are skipped, submodule mapping still runs).
 
 ## Submodules
 
@@ -190,7 +191,13 @@ git submodule update --init --recursive
   code, and never become submodules. Every `registry/official/<name>.toml`
   entry must have a matching `plugins/<name>` submodule whose URL equals the
   entry `repository` field; `just registry-validate` enforces this offline and
-  reports `plugins/<name>` directories with no official entry.
+  reports `plugins/<name>` directories with no official entry. Each pin must
+  be a commit reachable from the plugin's default branch: the validator
+  resolves the tip with `git ls-remote` and proves ancestry through the
+  GitHub compare API, failing when a pin is off-mainline and degrading with a
+  notice when offline. Bump a pin with `git submodule update --remote
+plugins/<name>` (or an explicit SHA), then `git add plugins/<name>` and
+  commit the pointer change.
 - `docs/` mounts the canonical
   [bitty-plugins-docs](https://github.com/bitty-terminal/bitty-plugins-docs)
   corpus, pinned by commit. Bump it with `git submodule update --remote docs`,
