@@ -14,3 +14,6 @@
 [submodule "plugins/palette"]
 	path = plugins/palette
 	url = https://github.com/bitty-terminal/palette
+[submodule "plugins/statusline"]
+	path = plugins/statusline
+	url = https://github.com/bitty-terminal/statusline
