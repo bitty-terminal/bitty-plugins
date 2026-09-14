@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 import {
   buildIndex,
   checkLicense,
+  checkPinReachability,
   checkSubmoduleConsistency,
+  collectOfficialPins,
+  githubRepoSlug,
+  isPinReachable,
   loadEntries,
   normalizeRepositoryUrl,
   parseGitmodules,
@@ -13,6 +17,8 @@ import {
   validateRawKeys,
   validateRegistry,
   type LoadedEntry,
+  type PinCheckPorts,
+  type PinCheckRequest,
   type RegistryEntry,
   type RegistryIndex,
   type SubmoduleEntry,
@@ -475,6 +481,188 @@ describe("index generation", () => {
       "activity",
     );
     expect(repositoryName("not-a-url")).toBe("");
+  });
+});
+
+describe("submodule pin mainline reachability", () => {
+  const request: PinCheckRequest = {
+    name: "sample-plugin",
+    pin: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    repository: "https://github.com/example/sample-plugin",
+    file: "registry/official/sample-plugin.toml",
+  };
+  const tip = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+  function portsWith(
+    compare: PinCheckPorts["comparePinToTip"],
+    tipValue: string | null = tip,
+  ): PinCheckPorts {
+    return {
+      resolveDefaultTip: async () => tipValue,
+      comparePinToTip: compare,
+    };
+  }
+
+  test("parses github slugs and rejects other hosts", () => {
+    expect(
+      githubRepoSlug("https://github.com/bitty-terminal/activity"),
+    ).toEqual({ owner: "bitty-terminal", repo: "activity" });
+    expect(
+      githubRepoSlug("https://github.com/bitty-terminal/activity.git"),
+    ).toEqual({ owner: "bitty-terminal", repo: "activity" });
+    expect(githubRepoSlug("https://gitlab.com/owner/repo")).toBeNull();
+    expect(githubRepoSlug("https://github.com/owner")).toBeNull();
+    expect(githubRepoSlug("not-a-url")).toBeNull();
+  });
+
+  test("ahead and identical prove reachability, behind and diverged do not", () => {
+    expect(isPinReachable("ahead")).toBe(true);
+    expect(isPinReachable("identical")).toBe(true);
+    expect(isPinReachable("behind")).toBe(false);
+    expect(isPinReachable("diverged")).toBe(false);
+  });
+
+  test("collects only official entries with a matching submodule", () => {
+    const official = loaded(
+      { ...baseEntry, repository: "https://github.com/example/sample-plugin" },
+      "registry/official/sample-plugin.toml",
+      true,
+    );
+    expect(
+      collectOfficialPins(
+        [official, loaded(baseEntry)],
+        [
+          {
+            name: "x",
+            path: "plugins/sample-plugin",
+            url: "https://github.com/example/sample-plugin",
+          },
+        ],
+      ),
+    ).toEqual([
+      {
+        name: "sample-plugin",
+        pin: "",
+        repository: "https://github.com/example/sample-plugin",
+        file: "registry/official/sample-plugin.toml",
+      },
+    ]);
+    expect(collectOfficialPins([official], [])).toEqual([]);
+  });
+
+  test("passes reachable pins and skips the compare call when pin is the tip", () => {
+    let calls = 0;
+    return (async () => {
+      const outcome = await checkPinReachability(
+        [{ ...request, pin: tip }],
+        portsWith(async () => {
+          calls += 1;
+          return { status: "ahead" };
+        }),
+        60000,
+      );
+      expect(outcome).toEqual({ diagnostics: [], notices: [], halted: false });
+      expect(calls).toBe(0);
+    })();
+  });
+
+  test("fails unreachable and unknown pins", () => {
+    return (async () => {
+      for (const status of ["behind", "diverged"] as const) {
+        const outcome = await checkPinReachability(
+          [request],
+          portsWith(async () => ({ status })),
+          60000,
+        );
+        expect(outcome.halted).toBe(false);
+        expect(outcome.diagnostics.length).toBe(1);
+        expect(outcome.diagnostics[0]?.severity).toBe("error");
+        expect(outcome.diagnostics[0]?.message).toContain("not reachable");
+      }
+      const missing = await checkPinReachability(
+        [request],
+        portsWith(async () => ({ httpStatus: 404 })),
+        60000,
+      );
+      expect(missing.diagnostics.length).toBe(1);
+      expect(missing.diagnostics[0]?.severity).toBe("error");
+      expect(missing.diagnostics[0]?.message).toContain("was not found");
+    })();
+  });
+
+  test("warns on unexpected http failures without halting", () => {
+    return (async () => {
+      const outcome = await checkPinReachability(
+        [request, { ...request, name: "other" }],
+        portsWith(async () => ({ httpStatus: 500 })),
+        60000,
+      );
+      expect(outcome.halted).toBe(false);
+      expect(
+        outcome.diagnostics.every(
+          (diagnostic) => diagnostic.severity === "warning",
+        ),
+      ).toBe(true);
+      expect(outcome.diagnostics.length).toBe(2);
+    })();
+  });
+
+  test("halts gracefully offline with a notice and no diagnostics", () => {
+    return (async () => {
+      const throwing: PinCheckPorts = {
+        resolveDefaultTip: async () => {
+          throw new Error("fetch failed");
+        },
+        comparePinToTip: async () => ({ status: "ahead" }),
+      };
+      const offline = await checkPinReachability([request], throwing, 60000);
+      expect(offline.halted).toBe(true);
+      expect(offline.diagnostics).toEqual([]);
+      expect(
+        offline.notices.some((notice) =>
+          notice.includes("network unavailable"),
+        ),
+      ).toBe(true);
+
+      const unreachableTip = await checkPinReachability(
+        [request],
+        portsWith(async () => ({ status: "ahead" }), null),
+        60000,
+      );
+      expect(unreachableTip.halted).toBe(true);
+      expect(unreachableTip.diagnostics).toEqual([]);
+
+      const compareDown: PinCheckPorts = {
+        resolveDefaultTip: async () => tip,
+        comparePinToTip: async () => {
+          throw new Error("connection reset");
+        },
+      };
+      const compareOffline = await checkPinReachability(
+        [request],
+        compareDown,
+        60000,
+      );
+      expect(compareOffline.halted).toBe(true);
+      expect(compareOffline.diagnostics).toEqual([]);
+    })();
+  });
+
+  test("skips unsupported hosts with a notice", () => {
+    return (async () => {
+      const outcome = await checkPinReachability(
+        [{ ...request, repository: "https://gitlab.com/owner/repo" }],
+        portsWith(async () => ({ status: "ahead" })),
+        60000,
+      );
+      expect(outcome).toEqual({
+        diagnostics: [],
+        notices: [
+          "notice: registry/official/sample-plugin.toml: pin reachability is not supported for this host; skipping",
+        ],
+        halted: false,
+      });
+    })();
   });
 });
 
