@@ -9,8 +9,8 @@ name = "File Manager"
 repository = "https://github.com/bitty-terminal/file-manager"
 kind = "plugin"
 author = "bitty-terminal"
-description = "Tiled Panel file listing, navigation, and preview with fs.read + optional fs.write, bounded 8KiB/32/64 PR-1..12."
-tags = ["files", "file-manager", "panel", "navigation", "preview"]
+description = "File listing, navigation, and preview over a root-parameterized scope; observation-only (terminal.semantic-read) with a bounded 8KiB payload."
+tags = ["files", "file-manager", "navigation", "preview"]
 categories = ["productivity"]
 license = "MIT"
 

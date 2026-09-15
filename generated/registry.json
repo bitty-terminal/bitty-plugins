@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-15T20:53:38Z",
+  "generated_at": "2026-09-15T21:20:46Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -40,12 +40,11 @@
       "official": true,
       "signature_status": "unsigned",
       "author": "bitty-terminal",
-      "description": "Tiled Panel file listing, navigation, and preview with fs.read + optional fs.write, bounded 8KiB/32/64 PR-1..12.",
+      "description": "File listing, navigation, and preview over a root-parameterized scope; observation-only (terminal.semantic-read) with a bounded 8KiB payload.",
       "tags": [
         "file-manager",
         "files",
         "navigation",
-        "panel",
         "preview"
       ],
       "categories": [
