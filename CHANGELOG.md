@@ -10,6 +10,18 @@ and this project adheres to
 
 ### Added
 
+- Optional `manifest_hash` and `signature` (`algorithm`, `value`, `signer`)
+  fields in `registry/schema.json`. They are shape-checked when present and an
+  unsigned entry only warns, so integrity data can be introduced without
+  blocking publication. `generated/registry.json` now records a per-entry
+  `signature_status` (`verified` | `unverified` | `unsigned`).
+
+- `scripts/sync-metadata.ts` binds fetched metadata to the registry entry:
+  `plugin.id` must equal the entry `id`, or the entry is reported as an error
+  and keeps its previous metadata. Fetches are limited to 256 KiB through a
+  `Content-Length` pre-check and a streaming cap; an oversized body warns and
+  keeps the previous metadata.
+
 - Repository initialization: official plugin directory layout, registry schema,
   validation/generation/metadata tooling, static store scaffold, pinned
   submodules for the SDK, template, and the official `activity` plugin, and
@@ -24,6 +36,13 @@ and this project adheres to
   be pending.
 
 ### Changed
+
+- The store frontend now re-validates entry `id` and `repository` formats at
+  load time, restricts external links to `https:`, and produces no install
+  command or copy control for an illegal `id` or repository. One-click copy is
+  gated only by those client-side format checks. Signature integrity fields and
+  the index-provided `signature_status` are advisory in this phase (not
+  client-verified) and appear only as a badge/grey-out.
 
 - `app/` is now a Vite + TypeScript project rendering the registry through
   small custom elements, replacing the custom Bun build. The Vite build emits

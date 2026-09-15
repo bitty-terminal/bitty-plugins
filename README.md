@@ -94,6 +94,15 @@ tags = ["activity", "privacy"] # optional
 categories = ["productivity"] # optional
 license = "MIT" # optional
 
+# Optional integrity fields (advisory in this phase; unsigned entries warn but
+# are accepted). `manifest_hash` is the canonical-form manifest digest (H-B);
+# `signature` is a detached publisher signature over the manifest and hash.
+# manifest_hash = "sha256:<64 lowercase hex chars>"
+# [signature]
+# algorithm = "ed25519" # or "minisign", "openpgp"
+# value = "<base64 or ASCII-armored detached signature>"
+# signer = "bitty-terminal" # optional key id or identity
+
 [compatibility]
 bitty = ">=0.5,<1.0" # optional application range
 sdk = "^0.1" # optional SDK range
@@ -103,7 +112,17 @@ sdk = "^0.1" # optional SDK range
   duplicated in registry files. `scripts/sync-metadata.ts` reads each plugin
   repository's `bitty-plugin.toml` when it can and records the result under the
   optional `metadata` object of `generated/registry.json`; offline runs degrade
-  gracefully and leave the index unchanged.
+  gracefully and leave the index unchanged. Before recording anything, sync
+  binds the fetched manifest to the entry: `plugin.id` must equal the entry
+  `id` or the entry is reported as an error and keeps its previous metadata.
+  Fetches are capped at 256 KiB (a `Content-Length` pre-check plus a streaming
+  cap); an oversized body is a warning and also keeps the previous metadata.
+- Integrity fields are optional in this phase. A declared `manifest_hash` or
+  `signature` is shape-checked, and an unsigned entry only warns, so the format
+  moves toward verification without blocking publication. `generate-index.ts`
+  records a per-entry `signature_status` (`verified` | `unverified` |
+  `unsigned`); no entry can be `verified` until a key-configured verification
+  phase lands, so the current output is `unsigned`.
 - `registry/schema.json` is the JSON Schema for entries and allows future
   kinds without a schema break.
 - The generated index is sorted by `id`, generated deterministically, and
@@ -136,6 +155,15 @@ elements (`<plugin-card>`, `<plugin-search>`, `<plugin-filters>`,
 `/registry.json`, which `app/vite.config.ts` serves during development and
 emits beside `index.html` at build time, so the deployed site reads the
 committed artifact as a static asset and no second copy lives under `app/`.
+
+The store treats the index as untrusted. It re-validates every entry's `id`
+and `repository` against the registry patterns at load time, allows only
+`https:` external links, and produces no install command for an illegal `id`
+or repository. One-click copy is gated only by those client-side format
+checks. Signature integrity fields (`manifest_hash`, `signature`) and the
+index-provided `signature_status` are advisory in this phase: the client does
+not verify them, so they appear as a badge with a grey-out for the unverified
+state and are not claimed as tamper protection.
 
 Client-side routes (`/`, `/plugins/<id>`, `/categories/<c>`, `/authors/<a>`,
 `/sdk`, `/create-plugin`) use the History API. `app/public/_redirects`

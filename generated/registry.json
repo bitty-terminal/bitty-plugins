@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-15T09:31:42Z",
+  "generated_at": "2026-09-15T20:53:38Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -8,6 +8,7 @@
       "kind": "plugin",
       "repository": "https://github.com/bitty-terminal/activity",
       "official": true,
+      "signature_status": "unsigned",
       "author": "bitty-terminal",
       "description": "Privacy-first local activity timeline plugin for the Bitty terminal.",
       "tags": [
@@ -37,6 +38,7 @@
       "kind": "plugin",
       "repository": "https://github.com/bitty-terminal/file-manager",
       "official": true,
+      "signature_status": "unsigned",
       "author": "bitty-terminal",
       "description": "Tiled Panel file listing, navigation, and preview with fs.read + optional fs.write, bounded 8KiB/32/64 PR-1..12.",
       "tags": [
@@ -68,6 +70,7 @@
       "kind": "plugin",
       "repository": "https://github.com/bitty-terminal/git-panel",
       "official": true,
+      "signature_status": "unsigned",
       "author": "bitty-terminal",
       "description": "Tiled Panel git branch/status/diff/log via process.spawn:git allowlisted [tools.git] bounded 8KiB/32/64 PR-1..12.",
       "tags": [
@@ -100,6 +103,7 @@
       "kind": "plugin",
       "repository": "https://github.com/bitty-terminal/palette",
       "official": true,
+      "signature_status": "unsigned",
       "author": "bitty-terminal",
       "description": "Command palette and picker UI via overlay slot, declarative primitives only.",
       "tags": [
@@ -130,6 +134,7 @@
       "kind": "plugin",
       "repository": "https://github.com/bitty-terminal/statusline",
       "official": true,
+      "signature_status": "unsigned",
       "author": "bitty-terminal",
       "description": "Cwd, mode, Git and task presentation via status-component composition.",
       "tags": [

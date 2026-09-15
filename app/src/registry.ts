@@ -12,6 +12,15 @@ export interface Compatibility {
   sdk?: string;
 }
 
+export interface PluginSignature {
+  algorithm: string;
+  value: string;
+  signer?: string;
+}
+
+/** Verification state carried by the index; absent means not verified. */
+export type SignatureStatus = "verified" | "unverified" | "unsigned";
+
 export interface PluginMetadata {
   version?: string;
   description?: string;
@@ -32,6 +41,9 @@ export interface Plugin {
   categories?: string[];
   license?: string;
   compatibility?: Compatibility;
+  manifest_hash?: string;
+  signature?: PluginSignature;
+  signature_status?: SignatureStatus;
   metadata?: PluginMetadata;
 }
 
@@ -40,6 +52,21 @@ export interface Registry {
   generated_at: string;
   plugins: Plugin[];
 }
+
+/**
+ * Registry contract mirrors used for runtime re-validation. The store cannot
+ * import the Node-side registry library (`scripts/registry-lib.ts`) because it
+ * runs in the browser, so the id and repository formats are restated here and
+ * must stay in sync with `registry/schema.json`.
+ */
+export const ID_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+export const REPOSITORY_PATTERN =
+  /^https:\/\/[a-z0-9.-]+(?:\/[A-Za-z0-9._~-]+){2,}$/;
+const SIGNATURE_STATUSES = new Set<SignatureStatus>([
+  "verified",
+  "unverified",
+  "unsigned",
+]);
 
 export const KIND_LABELS: Record<string, string> = {
   plugin: "Plugin",
@@ -53,13 +80,27 @@ export const KIND_LABELS: Record<string, string> = {
 function isPlugin(value: unknown): value is Plugin {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
-  return (
-    typeof record.id === "string" &&
-    typeof record.name === "string" &&
-    typeof record.kind === "string" &&
-    typeof record.repository === "string" &&
-    typeof record.official === "boolean"
-  );
+  if (
+    typeof record.id !== "string" ||
+    record.id.length > 64 ||
+    !ID_PATTERN.test(record.id) ||
+    typeof record.name !== "string" ||
+    typeof record.kind !== "string" ||
+    typeof record.repository !== "string" ||
+    !REPOSITORY_PATTERN.test(record.repository) ||
+    typeof record.official !== "boolean"
+  ) {
+    return false;
+  }
+  if (record.signature_status !== undefined) {
+    if (
+      typeof record.signature_status !== "string" ||
+      !SIGNATURE_STATUSES.has(record.signature_status as SignatureStatus)
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function isRegistry(value: unknown): value is Registry {
@@ -125,7 +166,40 @@ export function kindsOf(registry: Registry): string[] {
 }
 
 export function installCommand(id: string): string {
+  if (id.length === 0 || id.length > 64 || !ID_PATTERN.test(id)) return "";
   return `bitty plugin add ${id}`;
+}
+
+/**
+ * Allow only `https:` links from untrusted registry data. `javascript:`,
+ * `data:`, `vbscript:`, and relative or malformed URLs are rejected so a
+ * poisoned index cannot produce an active or scheme-confusing `href`.
+ */
+export function isAllowedExternalUrl(url: string): boolean {
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the install command may be offered as a one-click copy.
+ *
+ * The decision depends only on client-side-verifiable facts: the id and
+ * repository must match the registry patterns. `signature_status` is provided
+ * by the same untrusted `generated/registry.json`, is not verified by the
+ * client in this phase, and is displayed as an advisory badge only; it must
+ * never gate the copy action, because a tampered index could set it to
+ * `verified` without any signature check.
+ */
+export function isCopyAllowed(
+  plugin: Pick<Plugin, "id" | "repository">,
+): boolean {
+  return (
+    installCommand(plugin.id) !== "" &&
+    REPOSITORY_PATTERN.test(plugin.repository)
+  );
 }
 
 export function kindLabel(kind: string): string {

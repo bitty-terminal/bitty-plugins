@@ -1,11 +1,13 @@
 /**
  * Refresh optional manifest metadata in generated/registry.json.
  *
- * Fetches each plugin's `bitty-plugin.toml` over HTTPS with strict timeouts
- * and no credentials, then records the manifest's version, description, and
- * license under the plugin's optional `metadata` object. Offline runs, or runs
- * with `--skip-network` / REGISTRY_SKIP_NETWORK=1, leave the index unchanged
- * and exit zero with a notice.
+ * Fetches each plugin's `bitty-plugin.toml` over HTTPS with strict timeouts,
+ * no credentials, a hard 256 KiB body cap, and an identity check: the fetched
+ * `plugin.id` must equal the registry entry's `id` before any metadata is
+ * recorded. A mismatch is a hard error (the stale metadata is kept); an
+ * oversized body is a warning (the stale metadata is kept). Offline runs, or
+ * runs with `--skip-network` / REGISTRY_SKIP_NETWORK=1, leave the index
+ * unchanged and exit zero with a notice.
  *
  * Usage:
  *   bun scripts/sync-metadata.ts [--skip-network]
@@ -32,6 +34,13 @@ import {
 
 const FETCH_TIMEOUT_MS = 5000;
 const FETCH_BUDGET_MS = 60000;
+
+/**
+ * Hard cap on a fetched manifest body, mirroring the SDK manifest validator's
+ * `MANIFEST_MAX_BYTES` (256 KiB). A larger response is rejected before its
+ * bytes are decoded, and the entry keeps its previous metadata.
+ */
+export const MANIFEST_MAX_BYTES = 256 * 1024;
 
 const USAGE = `usage: bun scripts/sync-metadata.ts [--skip-network]
 
@@ -79,29 +88,117 @@ async function fetchText(url: string): Promise<string> {
       );
     }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.text();
+    return await readBoundedText(response);
   } finally {
     clearTimeout(timer);
   }
 }
 
-function manifestMetadata(
+function oversizedError(limit: number, observed?: number): Error {
+  const detail = observed === undefined ? "" : ` (${observed} bytes)`;
+  return Object.assign(
+    new Error(`manifest exceeds the ${limit}-byte limit${detail}`),
+    { oversized: true },
+  );
+}
+
+/**
+ * Read a response body as text while enforcing a hard byte cap.
+ *
+ * A `Content-Length` pre-check rejects the declared oversize before any body
+ * bytes are read; otherwise the stream is consumed incrementally and aborted
+ * as soon as the running total exceeds the cap, so an oversized body is never
+ * fully buffered or decoded. Exceeding the cap throws an error flagged with
+ * `oversized: true`.
+ */
+export async function readBoundedText(
+  response: Response,
+  maxBytes: number = MANIFEST_MAX_BYTES,
+): Promise<string> {
+  const declared = response.headers.get("content-length");
+  if (declared !== null) {
+    const length = Number.parseInt(declared, 10);
+    if (Number.isFinite(length) && length > maxBytes) {
+      await response.body?.cancel();
+      throw oversizedError(maxBytes, length);
+    }
+  }
+
+  const body = response.body;
+  if (body === null) {
+    const text = await response.text();
+    const bytes = new TextEncoder().encode(text).byteLength;
+    if (bytes > maxBytes) throw oversizedError(maxBytes, bytes);
+    return text;
+  }
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value === undefined) continue;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw oversizedError(maxBytes, total);
+    }
+    chunks.push(value);
+  }
+  const combined = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(combined);
+}
+
+/** Result of reading a fetched manifest: metadata, a notice, or a hard error. */
+export interface ManifestMetadataResult {
+  metadata: IndexMetadata | null;
+  error?: string;
+  notice?: string;
+}
+
+/**
+ * Extract manifest metadata, binding it to the expected registry id.
+ *
+ * The fetched manifest is untrusted: when its `plugin.id` is missing or does
+ * not equal the registry entry's id, an error is returned and no metadata is
+ * produced, so the caller keeps the entry's previous metadata instead of
+ * hanging another plugin's version under this id.
+ */
+export function manifestMetadata(
   text: string,
   source: string,
+  expectedId: string,
   previous: IndexMetadata | undefined,
   fetchedAt: string,
-): IndexMetadata | null {
+): ManifestMetadataResult {
   let parsed: { plugin?: Record<string, unknown> };
   try {
     parsed = Bun.TOML.parse(text) as { plugin?: Record<string, unknown> };
   } catch (error) {
-    console.log(
-      `notice: ${source}: cannot parse bitty-plugin.toml (${error instanceof Error ? error.message : String(error)})`,
-    );
-    return null;
+    return {
+      metadata: null,
+      notice: `cannot parse bitty-plugin.toml (${error instanceof Error ? error.message : String(error)})`,
+    };
   }
   const plugin = parsed.plugin;
-  if (!plugin || typeof plugin !== "object") return null;
+  if (!plugin || typeof plugin !== "object") return { metadata: null };
+
+  const manifestId = typeof plugin.id === "string" ? plugin.id : "";
+  if (manifestId !== expectedId) {
+    const observed =
+      manifestId === "" ? "(missing plugin.id)" : `plugin.id "${manifestId}"`;
+    return {
+      metadata: null,
+      error: `manifest identity mismatch: registry id "${expectedId}" but fetched ${observed}; refusing to record metadata`,
+    };
+  }
+
   const metadata: IndexMetadata = { source };
   if (typeof plugin.version === "string") metadata.version = plugin.version;
   if (typeof plugin.description === "string") {
@@ -109,7 +206,7 @@ function manifestMetadata(
   }
   if (typeof plugin.license === "string") metadata.license = plugin.license;
   if (metadata.version === undefined && metadata.license === undefined) {
-    return null;
+    return { metadata: null };
   }
   const unchanged =
     previous !== undefined &&
@@ -119,7 +216,7 @@ function manifestMetadata(
     previous.source === metadata.source;
   metadata.fetched_at =
     unchanged && previous.fetched_at ? previous.fetched_at : fetchedAt;
-  return metadata;
+  return { metadata };
 }
 
 async function main(): Promise<number> {
@@ -161,6 +258,7 @@ async function main(): Promise<number> {
   }
   const canonical = buildIndex(entries, previous);
   const metadataById = new Map<string, IndexMetadata>();
+  const syncDiagnostics: Diagnostic[] = [];
   const started = Date.now();
   let offline = false;
   let fetched = 0;
@@ -185,17 +283,38 @@ async function main(): Promise<number> {
     )?.metadata;
     try {
       const text = await fetchText(source);
-      const metadata = manifestMetadata(
+      const result = manifestMetadata(
         text,
         source,
+        entry.id,
         existing,
         nowUtcSeconds(),
       );
       fetched += 1;
-      if (metadata) metadataById.set(entry.id, metadata);
+      if (result.notice) {
+        console.log(`notice: ${file}: ${result.notice}`);
+        continue;
+      }
+      if (result.error) {
+        syncDiagnostics.push({
+          severity: "error",
+          file,
+          message: result.error,
+        });
+        continue;
+      }
+      if (result.metadata) metadataById.set(entry.id, result.metadata);
     } catch (error) {
       if (error instanceof Error && "missing" in error) {
         console.log(`notice: ${file}: no bitty-plugin.toml found at ${source}`);
+        continue;
+      }
+      if (error instanceof Error && "oversized" in error) {
+        syncDiagnostics.push({
+          severity: "warning",
+          file,
+          message: `${error.message}; keeping previous metadata`,
+        });
         continue;
       }
       offline = true;
@@ -205,6 +324,11 @@ async function main(): Promise<number> {
     }
   }
 
+  for (const diagnostic of syncDiagnostics) {
+    console.log(formatDiagnostic(diagnostic));
+  }
+  const syncErrors = countSeverity(syncDiagnostics, "error");
+
   const plugins = canonical.plugins.map((plugin) => {
     const metadata = metadataById.get(plugin.id);
     return metadata ? { ...plugin, metadata } : plugin;
@@ -212,15 +336,18 @@ async function main(): Promise<number> {
   const rendered = renderIndex({ ...canonical, plugins });
   const absolute = join(REPO_ROOT, GENERATED_FILE);
   const current = existsSync(absolute) ? readFileSync(absolute, "utf8") : null;
+  const exitCode = syncErrors > 0 ? 1 : 0;
   if (rendered === current) {
     console.log(`metadata unchanged (${fetched} manifest(s) fetched)`);
-    return 0;
+    return exitCode;
   }
   writeFileSync(absolute, rendered);
   console.log(
     `updated ${GENERATED_FILE} (${fetched} manifest(s) fetched, ${metadataById.size} metadata entr(ies))`,
   );
-  return 0;
+  return exitCode;
 }
 
-process.exit(await main());
+if (import.meta.main) {
+  process.exit(await main());
+}

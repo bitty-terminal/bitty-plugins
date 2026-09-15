@@ -5,6 +5,8 @@
  * nodes and attributes through this module, never `innerHTML`.
  */
 
+import { isAllowedExternalUrl } from "../registry.ts";
+
 export type Child = Node | string | null | undefined | false;
 
 let nextId = 1;
@@ -42,7 +44,19 @@ export function link(path: string, label: string): HTMLAnchorElement {
   return el("a", { href: path, "data-link": true }, label);
 }
 
-export function externalLink(url: string, label: string): HTMLAnchorElement {
+/**
+ * Render an external link. Only `https:` targets produce a real anchor; any
+ * other scheme or malformed URL degrades to inert text, so a poisoned index
+ * cannot smuggle `javascript:`/`data:` into `href`.
+ */
+export function externalLink(url: string, label: string): HTMLElement {
+  if (!isAllowedExternalUrl(url)) {
+    return el(
+      "span",
+      { class: "external-link-blocked", title: "Blocked non-HTTPS link" },
+      label,
+    );
+  }
   return el(
     "a",
     { href: url, rel: "noopener noreferrer", target: "_blank" },

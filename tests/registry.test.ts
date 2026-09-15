@@ -5,6 +5,7 @@ import {
   checkPinReachability,
   checkSubmoduleConsistency,
   collectOfficialPins,
+  countSeverity,
   githubRepoSlug,
   isPinReachable,
   loadEntries,
@@ -23,6 +24,17 @@ import {
   type RegistryIndex,
   type SubmoduleEntry,
 } from "../scripts/registry-lib.ts";
+import {
+  MANIFEST_MAX_BYTES,
+  manifestMetadata,
+  readBoundedText,
+} from "../scripts/sync-metadata.ts";
+import {
+  installCommand,
+  isAllowedExternalUrl,
+  isCopyAllowed,
+  isRegistry,
+} from "../app/src/registry.ts";
 import { isValidVersionRange } from "../scripts/semver.ts";
 
 const baseEntry: RegistryEntry = {
@@ -448,6 +460,7 @@ describe("index generation", () => {
         {
           ...baseEntry,
           official: false,
+          signature_status: "unsigned",
           metadata: {
             version: "1.2.3",
             source: "https://example.com/manifest",
@@ -666,6 +679,300 @@ describe("submodule pin mainline reachability", () => {
   });
 });
 
+describe("registry integrity fields (R1)", () => {
+  const manifestHash = `sha256:${"a".repeat(64)}`;
+  const signed: RegistryEntry = {
+    ...baseEntry,
+    manifest_hash: manifestHash,
+    signature: {
+      algorithm: "ed25519",
+      value: "c2lnbmF0dXJl",
+      signer: "bitty-terminal",
+    },
+  };
+
+  test("accepts complete integrity fields without errors", () => {
+    expect(errorsOf(signed)).toEqual([]);
+  });
+
+  test("warns, but does not fail, when integrity fields are absent", () => {
+    const diagnostics = validateEntry(
+      baseEntry,
+      "registry/community/example-sample.toml",
+    );
+    expect(countSeverity(diagnostics, "error")).toBe(0);
+    expect(countSeverity(diagnostics, "warning")).toBeGreaterThanOrEqual(2);
+    expect(
+      diagnostics.some((diagnostic) =>
+        diagnostic.message.includes("`signature`"),
+      ),
+    ).toBe(true);
+    expect(
+      diagnostics.some((diagnostic) =>
+        diagnostic.message.includes("`manifest_hash`"),
+      ),
+    ).toBe(true);
+  });
+
+  test("rejects malformed manifest_hash and signature shapes", () => {
+    expect(
+      errorsOf({ ...baseEntry, manifest_hash: "sha256:not-hex" }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      errorsOf({ ...baseEntry, manifest_hash: "not-a-hash" }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      errorsOf({
+        ...baseEntry,
+        signature: { algorithm: "ED25519!", value: "x" },
+      }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      errorsOf({
+        ...baseEntry,
+        signature: { algorithm: "ed25519", value: "" },
+      }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  test("rejects undeclared signature keys", () => {
+    const messages = validateRawKeys(
+      {
+        id: "sample.plugin",
+        name: "Sample",
+        repository: "https://github.com/example/sample-plugin",
+        manifest_hash: manifestHash,
+        signature: { algorithm: "ed25519", value: "x", mystery: 1 },
+      },
+      "registry/community/example-sample.toml",
+    ).map((diagnostic) => diagnostic.message);
+    expect(
+      messages.some((message) => message.includes("signature.mystery")),
+    ).toBe(true);
+  });
+
+  test("rejects non-string integrity field types", () => {
+    const messages = validateRawKeys(
+      {
+        id: "sample.plugin",
+        name: "Sample",
+        repository: "https://github.com/example/sample-plugin",
+        manifest_hash: 5,
+        signature: "not-an-object",
+      },
+      "registry/community/example-sample.toml",
+    ).map((diagnostic) => diagnostic.message);
+    expect(
+      messages.some((message) =>
+        message.includes("`manifest_hash` must be a string"),
+      ),
+    ).toBe(true);
+    expect(
+      messages.some((message) =>
+        message.includes("`signature` must be a table/object"),
+      ),
+    ).toBe(true);
+  });
+
+  test("records signature_status and copies integrity fields into the index", () => {
+    const now = "2026-01-01T00:00:00Z";
+    const index = buildIndex([loaded(signed)], null, now);
+    const plugin = index.plugins[0];
+    expect(plugin?.signature_status).toBe("unverified");
+    expect(plugin?.manifest_hash).toBe(manifestHash);
+    expect(plugin?.signature?.algorithm).toBe("ed25519");
+    expect(
+      buildIndex([loaded(baseEntry)], null, now).plugins[0]?.signature_status,
+    ).toBe("unsigned");
+  });
+});
+
+describe("sync metadata identity binding (R2)", () => {
+  const manifest = [
+    "[plugin]",
+    'id = "sample.plugin"',
+    'version = "1.2.3"',
+    'license = "MIT"',
+    "",
+  ].join("\n");
+
+  test("records metadata when the manifest id matches the entry id", () => {
+    const result = manifestMetadata(
+      manifest,
+      "https://example.com/bitty-plugin.toml",
+      "sample.plugin",
+      undefined,
+      "2026-01-01T00:00:00Z",
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.metadata?.version).toBe("1.2.3");
+  });
+
+  test("errors and yields no metadata on id mismatch or missing id", () => {
+    const mismatch = manifestMetadata(
+      '[plugin]\nid = "other.plugin"\nversion = "9.9.9"\n',
+      "https://example.com/bitty-plugin.toml",
+      "sample.plugin",
+      undefined,
+      "2026-01-01T00:00:00Z",
+    );
+    expect(mismatch.metadata).toBeNull();
+    expect(mismatch.error).toContain("identity mismatch");
+
+    const missing = manifestMetadata(
+      '[plugin]\nversion = "9.9.9"\n',
+      "https://example.com/bitty-plugin.toml",
+      "sample.plugin",
+      undefined,
+      "2026-01-01T00:00:00Z",
+    );
+    expect(missing.metadata).toBeNull();
+    expect(missing.error).toContain("missing plugin.id");
+  });
+
+  test("reports a parse notice without producing metadata", () => {
+    const result = manifestMetadata(
+      "not = = toml",
+      "https://example.com/bitty-plugin.toml",
+      "sample.plugin",
+      undefined,
+      "2026-01-01T00:00:00Z",
+    );
+    expect(result.metadata).toBeNull();
+    expect(result.notice).toBeDefined();
+  });
+});
+
+describe("sync metadata size guard (R3)", () => {
+  test("uses the 256 KiB manifest cap", () => {
+    expect(MANIFEST_MAX_BYTES).toBe(256 * 1024);
+  });
+
+  test("rejects a declared Content-Length over the cap before reading", async () => {
+    const response = new Response("short", {
+      headers: { "content-length": String(MANIFEST_MAX_BYTES + 1) },
+    });
+    await expect(readBoundedText(response, MANIFEST_MAX_BYTES)).rejects.toThrow(
+      /exceeds/,
+    );
+  });
+
+  test("aborts a streamed body without Content-Length once over the cap", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("x".repeat(64)));
+        controller.close();
+      },
+    });
+    const response = new Response(stream);
+    await expect(readBoundedText(response, 16)).rejects.toThrow(/exceeds/);
+  });
+
+  test("returns text at or under the cap", async () => {
+    const response = new Response('[plugin]\nid = "sample.plugin"\n');
+    await expect(readBoundedText(response, 1024)).resolves.toContain(
+      "sample.plugin",
+    );
+  });
+});
+
+describe("store runtime hardening (R7)", () => {
+  const validPlugin = {
+    id: "sample.plugin",
+    name: "Sample",
+    kind: "plugin",
+    repository: "https://github.com/example/sample-plugin",
+    official: false,
+  };
+
+  function registryWith(plugin: Record<string, unknown>): unknown {
+    return {
+      schema_version: 1,
+      generated_at: "2026-01-01T00:00:00Z",
+      plugins: [plugin],
+    };
+  }
+
+  test("isRegistry re-checks id and repository formats", () => {
+    expect(isRegistry(registryWith(validPlugin))).toBe(true);
+    expect(isRegistry(registryWith({ ...validPlugin, id: "Bad Id" }))).toBe(
+      false,
+    );
+    expect(
+      isRegistry(registryWith({ ...validPlugin, id: "a".repeat(65) })),
+    ).toBe(false);
+    expect(
+      isRegistry(
+        registryWith({ ...validPlugin, repository: "javascript:alert(1)" }),
+      ),
+    ).toBe(false);
+    expect(
+      isRegistry(
+        registryWith({
+          ...validPlugin,
+          repository: "http://github.com/example/sample-plugin",
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isRegistry(registryWith({ ...validPlugin, signature_status: "bogus" })),
+    ).toBe(false);
+  });
+
+  test("installCommand is empty for illegal ids and valid otherwise", () => {
+    expect(installCommand("sample.plugin")).toBe(
+      "bitty plugin add sample.plugin",
+    );
+    expect(installCommand("bad id")).toBe("");
+    expect(installCommand("rm -rf /")).toBe("");
+    expect(installCommand("a".repeat(65))).toBe("");
+    expect(installCommand("")).toBe("");
+  });
+
+  test("only https external URLs are allowed", () => {
+    expect(
+      isAllowedExternalUrl("https://github.com/example/sample-plugin"),
+    ).toBe(true);
+    expect(
+      isAllowedExternalUrl("http://github.com/example/sample-plugin"),
+    ).toBe(false);
+    expect(isAllowedExternalUrl("javascript:alert(1)")).toBe(false);
+    expect(isAllowedExternalUrl("data:text/html,x")).toBe(false);
+    expect(isAllowedExternalUrl("not a url")).toBe(false);
+  });
+
+  test("copy gating depends only on pattern-valid id and repository", () => {
+    expect(isCopyAllowed(validPlugin)).toBe(true);
+    expect(isCopyAllowed({ ...validPlugin, id: "bad id" })).toBe(false);
+    expect(isCopyAllowed({ ...validPlugin, id: "a".repeat(65) })).toBe(false);
+    expect(
+      isCopyAllowed({ ...validPlugin, repository: "javascript:alert(1)" }),
+    ).toBe(false);
+    expect(
+      isCopyAllowed({
+        ...validPlugin,
+        repository: "http://github.com/example/sample-plugin",
+      }),
+    ).toBe(false);
+  });
+
+  test("a forged verified signature_status does not enable or bypass copy", () => {
+    const forged = { ...validPlugin, signature_status: "verified" as const };
+    const honest = { ...validPlugin, signature_status: "unsigned" as const };
+    // The forged status is not the enabling factor: both valid entries decide
+    // identically, so an index cannot turn copy on by claiming verification.
+    expect(isCopyAllowed(forged)).toBe(isCopyAllowed(honest));
+    // The forged status cannot rescue an illegal id or repository.
+    expect(isCopyAllowed({ ...forged, id: "bad id" })).toBe(false);
+    expect(
+      isCopyAllowed({
+        ...forged,
+        repository: "http://github.com/example/sample-plugin",
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("repository registry content", () => {
   test("loads without parse errors and holds the official activity entry", () => {
     const { entries, diagnostics } = loadEntries();
@@ -675,9 +982,11 @@ describe("repository registry content", () => {
     );
     expect(activity).toBeDefined();
     expect(activity?.official).toBe(true);
-    expect(
-      validateEntry(activity?.entry as RegistryEntry, activity?.file ?? ""),
-    ).toEqual([]);
+    const activityDiagnostics = validateEntry(
+      activity?.entry as RegistryEntry,
+      activity?.file ?? "",
+    );
+    expect(countSeverity(activityDiagnostics, "error")).toBe(0);
     expect(validateRegistry(entries)).toEqual([]);
   });
 });

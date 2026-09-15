@@ -53,6 +53,23 @@ entry is not an endorsement of the referenced plugin's security.
 
 - Registry and manifest data is treated as untrusted input; scripts validate
   before use and never execute registry content.
+- Registry entries optionally carry a `manifest_hash` and a `signature`
+  (`algorithm`, `value`, `signer`). The shape is validated and a
+  `signature_status` is recorded in `generated/registry.json`; unsigned entries
+  only warn because no verification keys are configured yet. These fields are
+  advisory index data: the client does not verify them, and store entries that
+  are not `verified` are shown with an advisory badge/grey-out only. The copy
+  action is not gated by this index-provided status.
+- Manifest metadata sync binds the fetched `plugin.id` to the registry entry
+  `id`: a mismatch is an error and the entry keeps its previous metadata.
+  Fetches are bounded to 256 KiB with a `Content-Length` pre-check and a
+  streaming cap; an oversized body warns and also keeps the previous metadata.
+- The storefront re-validates entry `id` and `repository` formats at runtime,
+  allows only `https:` external links, and yields no install command for an
+  illegal `id` or repository. Copy is gated only by those client-side format
+  checks; a tampered index cannot introduce an invalid install target or a
+  non-HTTPS link, but signature fields are not a client-side tamper defense in
+  this phase.
 - Network access in scripts is bounded by explicit timeouts, requires no
   credentials, and degrades gracefully offline.
 - Fork pull requests run with read-only permissions and no secrets.

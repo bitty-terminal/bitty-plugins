@@ -3,7 +3,12 @@
  * proposed install command.
  */
 
-import { kindLabel, type Plugin, type PluginMetadata } from "../registry.ts";
+import {
+  isCopyAllowed,
+  kindLabel,
+  type Plugin,
+  type PluginMetadata,
+} from "../registry.ts";
 import {
   badge,
   defineElement,
@@ -16,6 +21,22 @@ import "./install-command.ts";
 
 function versionLabel(metadata: PluginMetadata | undefined): string | null {
   return metadata?.version ? `v${metadata.version}` : null;
+}
+
+/**
+ * Advisory signature label. `signature_status` comes from the index and is
+ * not verified by the client in this phase, so the text stays descriptive and
+ * never asserts a verification the client did not perform.
+ */
+function signatureLabel(plugin: Plugin): string {
+  switch (plugin.signature_status) {
+    case "verified":
+      return "Index claims verified";
+    case "unverified":
+      return "Signature declared";
+    default:
+      return "Unsigned";
+  }
 }
 
 export class PluginDetail extends HTMLElement {
@@ -85,9 +106,12 @@ export class PluginDetail extends HTMLElement {
       addFact("Tags", plugin.tags.join(", "));
     }
 
+    const copyAllowed = isCopyAllowed(plugin);
+    const signatureVerified = plugin.signature_status === "verified";
+
     const node = el(
       "article",
-      { class: "detail" },
+      { class: signatureVerified ? "detail" : "detail detail-unverified" },
       el(
         "p",
         { class: "breadcrumb" },
@@ -103,6 +127,10 @@ export class PluginDetail extends HTMLElement {
           plugin.official ? "official" : "community",
         ),
         badge(kindLabel(plugin.kind)),
+        badge(
+          signatureLabel(plugin),
+          signatureVerified ? "verified" : "unverified",
+        ),
       ),
       plugin.description
         ? el("p", { class: "lede" }, plugin.description)
@@ -111,8 +139,21 @@ export class PluginDetail extends HTMLElement {
         "section",
         { class: "install-section" },
         el("h2", {}, "Install"),
-        el("install-command", { "plugin-id": plugin.id }),
+        copyAllowed
+          ? el("install-command", { "plugin-id": plugin.id })
+          : el(
+              "p",
+              { class: "note" },
+              "This entry has an invalid id or repository; no install command is available.",
+            ),
       ),
+      signatureVerified
+        ? null
+        : el(
+            "p",
+            { class: "note" },
+            "Signature verification is not implemented in this phase; integrity fields are advisory index data, not locally verified.",
+          ),
       el("section", {}, el("h2", {}, "Details"), facts),
     );
 
