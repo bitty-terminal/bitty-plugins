@@ -20,3 +20,6 @@
 [submodule "plugins/git-panel"]
 	path = plugins/git-panel
 	url = https://github.com/bitty-terminal/git-panel.git
+[submodule "plugins/file-manager"]
+	path = plugins/file-manager
+	url = https://github.com/bitty-terminal/file-manager.git
