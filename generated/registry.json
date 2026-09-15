@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-14T05:15:33Z",
+  "generated_at": "2026-09-15T05:40:59Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -22,6 +22,45 @@
       "compatibility": {
         "bitty": ">=0.5,<1.0",
         "sdk": "^0.1"
+      },
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/activity/HEAD/bitty-plugin.toml",
+        "version": "0.0.1",
+        "description": "Privacy-first local activity timeline plugin for the Bitty terminal.",
+        "license": "MIT",
+        "fetched_at": "2026-09-15T05:41:03Z"
+      }
+    },
+    {
+      "id": "bitty-terminal.git-panel",
+      "name": "Git Panel",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/git-panel",
+      "official": true,
+      "author": "bitty-terminal",
+      "description": "Tiled Panel git branch/status/diff/log via process.spawn:git allowlisted [tools.git] bounded 8KiB/32/64 PR-1..12.",
+      "tags": [
+        "diff",
+        "git",
+        "log",
+        "panel",
+        "version-control"
+      ],
+      "categories": [
+        "developer-tools",
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.1,<1.0",
+        "sdk": "^0.1"
+      },
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/git-panel/HEAD/bitty-plugin.toml",
+        "version": "0.1.0",
+        "description": "Tiled Panel git branch/status/diff/log via process.spawn:git allowlisted [tools.git] bounded 8KiB/32/64 PR-1..12",
+        "license": "MIT",
+        "fetched_at": "2026-09-15T05:41:04Z"
       }
     },
     {
@@ -45,6 +84,13 @@
       "compatibility": {
         "bitty": ">=0.1,<1.0",
         "sdk": "^0.1"
+      },
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/palette/HEAD/bitty-plugin.toml",
+        "version": "0.0.1",
+        "description": "Command palette and picker UI via overlay slot, declarative primitives only",
+        "license": "MIT",
+        "fetched_at": "2026-09-15T05:41:04Z"
       }
     },
     {
@@ -68,6 +114,13 @@
       "compatibility": {
         "bitty": ">=0.1,<1.0",
         "sdk": "^0.1"
+      },
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/statusline/HEAD/bitty-plugin.toml",
+        "version": "0.0.1",
+        "description": "Cwd, mode, Git and task presentation via status-component composition",
+        "license": "MIT",
+        "fetched_at": "2026-09-15T05:41:04Z"
       }
     }
   ]

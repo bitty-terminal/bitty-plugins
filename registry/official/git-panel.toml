@@ -1,0 +1,24 @@
+# Official registry entry: Bitty Git Panel.
+#
+# Hand-maintained identity data only. Derived metadata (version, stars, dates,
+# downloads) is intentionally absent; `just registry-sync` mirrors the plugin's
+# bitty-plugin.toml into the optional `metadata` object of the generated index.
+#
+# READY TO LAND (not landed): copy this file to
+# `registry/official/git-panel.toml` in the bitty-plugins repository AFTER
+# the `bitty-terminal/git-panel` repository exists (commander approval
+# required; this task creates no repositories and touches no registry).
+
+id = "bitty-terminal.git-panel"
+name = "Git Panel"
+repository = "https://github.com/bitty-terminal/git-panel"
+kind = "plugin"
+author = "bitty-terminal"
+description = "Tiled Panel git branch/status/diff/log via process.spawn:git allowlisted [tools.git] bounded 8KiB/32/64 PR-1..12."
+tags = ["git", "version-control", "panel", "diff", "log"]
+categories = ["productivity", "developer-tools"]
+license = "MIT"
+
+[compatibility]
+bitty = ">=0.1,<1.0"
+sdk = "^0.1"
