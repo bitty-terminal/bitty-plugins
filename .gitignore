@@ -1,6 +1,6 @@
 .carryctx/config.local.toml
 .worktrees/
-recording/
 node_modules/
 dist/
+recording/
 .wrangler/
