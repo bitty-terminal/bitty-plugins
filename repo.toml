@@ -1,0 +1,15 @@
+# bitty-plugins: workspace identity descriptor (kind/lang/role mirror workspace.toml).
+[repo]
+name = "bitty-plugins"
+kind = "registry"
+lang = "ts"
+role = "plugin registry, store, and official plugins"
+owner = "TBD"
+docs = "bitty-plugins-docs"
+
+[contracts.provides]
+registry-index = "generated/registry.json" # sole read path for store and future CLI
+registry-schema = "registry/schema.json" # JSON Schema for registry entries
+
+[contracts.consumes]
+plugin-manifest = "bitty-plugin.toml" # per-plugin manifests synced into the index
