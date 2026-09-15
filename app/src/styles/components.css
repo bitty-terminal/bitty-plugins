@@ -96,6 +96,21 @@
   color: var(--badge-official-fg);
 }
 
+.badge-unverified {
+  background: var(--badge-community-bg);
+  color: var(--badge-community-fg);
+  opacity: 0.75;
+}
+
+.external-link-blocked {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.detail-unverified {
+  opacity: 0.72;
+}
+
 .facts {
   display: grid;
   grid-template-columns: max-content 1fr;

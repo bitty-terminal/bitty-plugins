@@ -25,6 +25,38 @@
       "pattern": "^https://[a-z0-9.-]+(?:/[A-Za-z0-9._~-]+){2,}$",
       "maxLength": 200
     },
+    "manifest_hash": {
+      "type": "string",
+      "description": "Optional canonical-form manifest digest (H-B): an algorithm-prefixed lowercase hex digest. Advisory in this phase; shape-checked, recorded in the index, and not cryptographically verified.",
+      "pattern": "^[a-z0-9]+:[0-9a-f]{32,128}$",
+      "maxLength": 160
+    },
+    "signature": {
+      "type": "object",
+      "description": "Optional detached publisher signature over the manifest and manifest_hash. Advisory in this phase: the shape is validated and the status is recorded, but unsigned entries are accepted with a warning because no verification keys are configured yet.",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "description": "Signature scheme token, for example \"ed25519\", \"minisign\", or \"openpgp\".",
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+          "maxLength": 32
+        },
+        "value": {
+          "type": "string",
+          "description": "Detached signature value (base64, base64url, or ASCII-armored form).",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "signer": {
+          "type": "string",
+          "description": "Optional signer identity or key identifier.",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
     "kind": {
       "type": "string",
       "description": "Entry kind. Future kinds extend this enum without a schema break.",

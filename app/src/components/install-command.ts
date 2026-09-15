@@ -3,7 +3,9 @@
  * with a copy control. The command is a design proposal; the label says so.
  *
  * The plugin id is set through the `plugin-id` attribute or the `pluginId`
- * property.
+ * property. An illegal id yields no command and no copy control; a valid id
+ * offers copy when the clipboard is available. Signature status never gates
+ * the copy action (it is unverified advisory data).
  */
 
 import { installCommand } from "../registry.ts";
@@ -45,6 +47,20 @@ export class InstallCommand extends HTMLElement {
       role: "status",
       "aria-live": "polite",
     });
+
+    if (command === "") {
+      this.#button = undefined;
+      this.replaceChildren(
+        el(
+          "p",
+          { class: "note" },
+          "This entry has an invalid id; no install command is available.",
+        ),
+        this.#status,
+      );
+      return;
+    }
+
     this.#button = el(
       "button",
       { type: "button", class: "copy-button" },

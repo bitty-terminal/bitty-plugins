@@ -37,10 +37,32 @@ export const COMMUNITY_FILE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)+\.toml$/;
 export const REPOSITORY_PATTERN =
   /^https:\/\/[a-z0-9.-]+(?:\/[A-Za-z0-9._~-]+){2,}$/;
 
+// Integrity fields are optional in this phase: absence is a warning, never a
+// validation error, because no verification keys are configured yet.
+export const MANIFEST_HASH_PATTERN = /^[a-z0-9]+:[0-9a-f]{32,128}$/;
+export const MANIFEST_HASH_MAX_LENGTH = 160;
+export const SIGNATURE_ALGORITHM_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+export const SIGNATURE_ALGORITHM_MAX_LENGTH = 32;
+export const SIGNATURE_VALUE_MAX_LENGTH = 4096;
+export const SIGNATURE_SIGNER_MAX_LENGTH = 256;
+
 export interface Compatibility {
   bitty?: string;
   sdk?: string;
 }
+
+export interface RegistrySignature {
+  algorithm: string;
+  value: string;
+  signer?: string;
+}
+
+/**
+ * Verification state recorded in the generated index. `verified` is reserved
+ * for a future key-configured phase; `unverified` means a signature is declared
+ * but not checked, and `unsigned` means no signature is declared.
+ */
+export type SignatureStatus = "verified" | "unverified" | "unsigned";
 
 export interface RegistryEntry {
   id: string;
@@ -53,6 +75,8 @@ export interface RegistryEntry {
   categories?: string[];
   license?: string;
   compatibility?: Compatibility;
+  manifest_hash?: string;
+  signature?: RegistrySignature;
 }
 
 export interface IndexMetadata {
@@ -75,6 +99,9 @@ export interface IndexPlugin {
   categories?: string[];
   license?: string;
   compatibility?: Compatibility;
+  manifest_hash?: string;
+  signature?: RegistrySignature;
+  signature_status: SignatureStatus;
   metadata?: IndexMetadata;
 }
 
@@ -115,9 +142,13 @@ const ENTRY_KEYS = new Set([
   "categories",
   "license",
   "compatibility",
+  "manifest_hash",
+  "signature",
 ]);
 
 const COMPATIBILITY_KEYS = new Set(["bitty", "sdk"]);
+
+const SIGNATURE_KEYS = new Set(["algorithm", "value", "signer"]);
 
 export function formatDiagnostic(diagnostic: Diagnostic): string {
   return `${diagnostic.file}: ${diagnostic.severity}: ${diagnostic.message}`;
@@ -231,6 +262,23 @@ function normalizeEntry(value: Record<string, unknown>): RegistryEntry {
   if (isStringArray(value.tags)) entry.tags = [...value.tags];
   if (isStringArray(value.categories)) entry.categories = [...value.categories];
   if (typeof value.license === "string") entry.license = value.license;
+  if (typeof value.manifest_hash === "string") {
+    entry.manifest_hash = value.manifest_hash;
+  }
+  if (isPlainObject(value.signature)) {
+    const rawSignature = value.signature;
+    const signature: RegistrySignature = {
+      algorithm:
+        typeof rawSignature.algorithm === "string"
+          ? rawSignature.algorithm
+          : "",
+      value: typeof rawSignature.value === "string" ? rawSignature.value : "",
+    };
+    if (typeof rawSignature.signer === "string") {
+      signature.signer = rawSignature.signer;
+    }
+    entry.signature = signature;
+  }
   if (isPlainObject(value.compatibility)) {
     const compatibility: Compatibility = {};
     if (typeof value.compatibility.bitty === "string") {
@@ -309,6 +357,8 @@ export function validateEntry(
     }
   }
 
+  validateIntegrityFields(entry, file, diagnostics);
+
   if (entry.compatibility) {
     for (const [key, range] of Object.entries(entry.compatibility)) {
       if (!COMPATIBILITY_KEYS.has(key)) {
@@ -324,6 +374,69 @@ export function validateEntry(
   }
 
   return diagnostics;
+}
+
+/**
+ * Validate the optional integrity fields. A declared field is shape-checked
+ * as a hard error; a missing field only warns, so unsigned entries remain
+ * publishable while the ecosystem moves toward mandatory verification.
+ */
+function validateIntegrityFields(
+  entry: RegistryEntry,
+  file: string,
+  diagnostics: Diagnostic[],
+): void {
+  const error = (message: string): void => {
+    diagnostics.push({ severity: "error", file, message });
+  };
+  const warn = (message: string): void => {
+    diagnostics.push({ severity: "warning", file, message });
+  };
+
+  if (entry.manifest_hash === undefined) {
+    warn(
+      "`manifest_hash` is not set; integrity binding is advisory in this phase (unsigned entries are accepted with a warning)",
+    );
+  } else if (
+    !MANIFEST_HASH_PATTERN.test(entry.manifest_hash) ||
+    entry.manifest_hash.length > MANIFEST_HASH_MAX_LENGTH
+  ) {
+    error(
+      '`manifest_hash` must be an algorithm-prefixed lowercase hex digest like "sha256:<64 hex chars>"',
+    );
+  }
+
+  const signature = entry.signature;
+  if (signature === undefined) {
+    warn(
+      "`signature` is not set; the index records this entry as `unsigned` (unsigned entries are accepted with a warning in this phase)",
+    );
+    return;
+  }
+  if (
+    !SIGNATURE_ALGORITHM_PATTERN.test(signature.algorithm) ||
+    signature.algorithm.length > SIGNATURE_ALGORITHM_MAX_LENGTH
+  ) {
+    error(
+      '`signature.algorithm` must be a lowercase scheme token like "ed25519" or "minisign"',
+    );
+  }
+  if (signature.value.length === 0) {
+    error("`signature.value` must not be empty");
+  } else if (signature.value.length > SIGNATURE_VALUE_MAX_LENGTH) {
+    error(
+      `\`signature.value\` must be at most ${SIGNATURE_VALUE_MAX_LENGTH} characters`,
+    );
+  }
+  if (
+    signature.signer !== undefined &&
+    (signature.signer.length === 0 ||
+      signature.signer.length > SIGNATURE_SIGNER_MAX_LENGTH)
+  ) {
+    error(
+      `\`signature.signer\` must be 1-${SIGNATURE_SIGNER_MAX_LENGTH} characters when present`,
+    );
+  }
 }
 
 function validateSlugArray(
@@ -395,6 +508,45 @@ export function validateRawKeys(
           severity: "error",
           file,
           message: `unknown key \`compatibility.${key}\``,
+        });
+      }
+    }
+  }
+  if (
+    value.manifest_hash !== undefined &&
+    typeof value.manifest_hash !== "string"
+  ) {
+    diagnostics.push({
+      severity: "error",
+      file,
+      message: "`manifest_hash` must be a string",
+    });
+  }
+  if (value.signature !== undefined && !isPlainObject(value.signature)) {
+    diagnostics.push({
+      severity: "error",
+      file,
+      message:
+        "`signature` must be a table/object with `algorithm` and `value`",
+    });
+  }
+  if (isPlainObject(value.signature)) {
+    for (const field of ["algorithm", "value", "signer"] as const) {
+      const fieldValue = value.signature[field];
+      if (fieldValue !== undefined && typeof fieldValue !== "string") {
+        diagnostics.push({
+          severity: "error",
+          file,
+          message: `\`signature.${field}\` must be a string`,
+        });
+      }
+    }
+    for (const key of Object.keys(value.signature)) {
+      if (!SIGNATURE_KEYS.has(key)) {
+        diagnostics.push({
+          severity: "error",
+          file,
+          message: `unknown key \`signature.${key}\``,
         });
       }
     }
@@ -910,6 +1062,7 @@ export function toIndexPlugin(
     kind: entry.kind,
     repository: entry.repository,
     official,
+    signature_status: entry.signature === undefined ? "unsigned" : "unverified",
   };
   if (entry.author !== undefined) plugin.author = entry.author;
   if (entry.description !== undefined) plugin.description = entry.description;
@@ -920,6 +1073,9 @@ export function toIndexPlugin(
   if (entry.license !== undefined) plugin.license = entry.license;
   if (entry.compatibility !== undefined)
     plugin.compatibility = entry.compatibility;
+  if (entry.manifest_hash !== undefined)
+    plugin.manifest_hash = entry.manifest_hash;
+  if (entry.signature !== undefined) plugin.signature = entry.signature;
   if (metadata !== undefined) plugin.metadata = metadata;
   return plugin;
 }

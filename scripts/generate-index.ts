@@ -65,10 +65,13 @@ function main(): number {
   const rendered = renderIndex(index);
   const absolute = join(REPO_ROOT, GENERATED_FILE);
   const current = existsSync(absolute) ? readFileSync(absolute, "utf8") : null;
+  const unverified = index.plugins.filter(
+    (plugin) => plugin.signature_status !== "verified",
+  ).length;
 
   if (current === rendered) {
     console.log(
-      `${GENERATED_FILE} is up to date (${entries.length} plugin(s))`,
+      `${GENERATED_FILE} is up to date (${entries.length} plugin(s), ${unverified} unverified)`,
     );
     return 0;
   }
@@ -81,7 +84,7 @@ function main(): number {
   mkdirSync(dirname(absolute), { recursive: true });
   writeFileSync(absolute, rendered);
   console.log(
-    `wrote ${GENERATED_FILE} (${entries.length} plugin(s), generated_at ${index.generated_at})`,
+    `wrote ${GENERATED_FILE} (${entries.length} plugin(s), ${unverified} unverified, generated_at ${index.generated_at})`,
   );
   return 0;
 }
