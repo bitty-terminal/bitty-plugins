@@ -105,7 +105,7 @@ license = "MIT" # optional
 
 [compatibility]
 bitty = ">=0.5,<1.0" # optional application range
-sdk = "^0.1" # optional SDK range
+sdk = "^0.1" # optional plugin API range (manifest `compat.plugin-api`)
 ```
 
 - Derived metadata (version, stars, dates, download counts) is **never**
@@ -127,6 +127,49 @@ sdk = "^0.1" # optional SDK range
   kinds without a schema break.
 - The generated index is sorted by `id`, generated deterministically, and
   idempotent: `generated_at` only changes when the plugin payload changes.
+
+### Version range validation
+
+Registry `[compatibility]` ranges are validated by the structural parser in
+`scripts/semver.ts` (`isValidVersionRange`), the single semver source for
+registry tooling. The accepted grammar is documented once by
+`VERSION_RANGE_SYNTAX` in that file and reused verbatim in diagnostics, so the
+grammar cannot be restated inconsistently. The parser rejects malformed
+comparator shapes (for example `>>>`), empty `,` or `||` branches, and a
+dangling `||`; hyphen ranges and build metadata are not accepted. Nonsense
+therefore fails at validation instead of reaching the generated index.
+
+### Compatibility naming map
+
+Registry entries and plugin manifests name the same two compatibility ranges
+differently:
+
+| Registry `[compatibility]` | Manifest `[compat]` | Meaning                 |
+| -------------------------- | ------------------- | ----------------------- |
+| `bitty`                    | `bitty`             | Bitty application range |
+| `sdk`                      | `plugin-api`        | Plugin API / SDK range  |
+
+`COMPATIBILITY_MANIFEST_FIELDS` in `scripts/registry-lib.ts` is the single
+in-repo record of this mapping. A registry entry must use the registry keys, so
+the manifest-side name `plugin-api` is rejected as an unsupported
+`compatibility` key. The registry performs no cross-repository fetch, so drift
+between a registry `sdk` range and its manifest `plugin-api` counterpart is
+surfaced by reviewing both against this table when either side changes, not by
+a runtime comparison.
+
+### Dependency model
+
+Registry entries **must not** declare dependencies. Plugin dependencies remain
+declared only in a plugin's `bitty-plugin.toml` `[dependencies]` table, which
+the SDK manifest tooling bounds and checks for self-dependencies. The registry
+has no cross-plugin dependency model yet: no `dependencies` field, no version
+intersection, no cycle detection, and no index representation, so an installer
+could not resolve a dependency declared there. `validate-registry` reports an
+explicit `dependencies is not supported in registry entries` error for an entry
+that declares the table, instead of a generic unknown-key error. Introducing a
+registry dependency model, and rejecting `[dependencies]` in the paired
+manifest validators, requires a separately authorized and reviewed change in
+this repository and the plugin/SDK repositories.
 
 ### Source-of-truth pipeline
 

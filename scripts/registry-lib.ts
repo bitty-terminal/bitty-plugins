@@ -8,7 +8,7 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { isValidVersionRange } from "./semver.ts";
+import { VERSION_RANGE_SYNTAX, versionRangeProblem } from "./semver.ts";
 
 export const REPO_ROOT = resolve(import.meta.dir, "..");
 export const REGISTRY_DIR = "registry";
@@ -46,6 +46,12 @@ export const SIGNATURE_ALGORITHM_MAX_LENGTH = 32;
 export const SIGNATURE_VALUE_MAX_LENGTH = 4096;
 export const SIGNATURE_SIGNER_MAX_LENGTH = 256;
 
+/**
+ * Registry compatibility ranges. A registry entry names the same two ranges a
+ * plugin manifest declares under `[compat]`, but the keys differ: the registry
+ * uses `sdk`, a manifest uses `plugin-api`. `COMPATIBILITY_MANIFEST_FIELDS`
+ * below is the single in-repo record of that mapping.
+ */
 export interface Compatibility {
   bitty?: string;
   sdk?: string;
@@ -147,6 +153,41 @@ const ENTRY_KEYS = new Set([
 ]);
 
 const COMPATIBILITY_KEYS = new Set(["bitty", "sdk"]);
+
+/**
+ * Mapping from registry compatibility keys to the plugin-manifest `[compat]`
+ * fields that carry the same range. A registry entry declares
+ * `compatibility.sdk`; the plugin's `bitty-plugin.toml` declares the identical
+ * contract as `compat.plugin-api`. This table is the single in-repo record of
+ * that dual-track naming: reviewers compare the two ranges against it when
+ * either side moves, so a registry `sdk` bump that leaves the manifest
+ * `plugin-api` range behind (or vice versa) is visible in the diff. The
+ * registry performs no cross-repository fetch, so drift is surfaced by review
+ * of this mapping plus the paired README table, never by a runtime comparison.
+ */
+export const COMPATIBILITY_MANIFEST_FIELDS = {
+  bitty: "bitty",
+  sdk: "plugin-api",
+} as const satisfies Record<keyof Compatibility, string>;
+
+/**
+ * Keys that are recognized but deliberately unsupported at the registry layer
+ * in this phase. Each produces an explicit error naming the decision instead
+ * of the generic unknown-key message.
+ *
+ * `dependencies`: plugin manifests may declare `[dependencies]` (bounded and
+ * self-dependency checked), but the registry has no cross-plugin dependency
+ * model yet: no version intersection, no cycle detection, and no index field.
+ * A registry entry that declares dependencies could not be resolved by an
+ * installer, so it is rejected until that model is separately authorized and
+ * approved. See the README "Dependency model" section.
+ */
+const UNSUPPORTED_ENTRY_KEYS = new Map<string, string>([
+  [
+    "dependencies",
+    '`dependencies` is not supported in registry entries; declare plugin dependencies in the plugin manifest `bitty-plugin.toml` `[dependencies]` (see README "Dependency model"). The registry has no cross-plugin dependency model yet, so it cannot express or resolve dependency ranges.',
+  ],
+]);
 
 const SIGNATURE_KEYS = new Set(["algorithm", "value", "signer"]);
 
@@ -365,9 +406,10 @@ export function validateEntry(
         error(`\`compatibility.${key}\` is not a supported key`);
         continue;
       }
-      if (!isValidVersionRange(range)) {
+      const problem = versionRangeProblem(range);
+      if (problem !== null) {
         error(
-          `\`compatibility.${key}\` is not a valid semver range (for example ">=0.5,<1.0" or "^0.1")`,
+          `\`compatibility.${key}\` is not a valid semver range: ${problem} (${VERSION_RANGE_SYNTAX})`,
         );
       }
     }
@@ -474,6 +516,11 @@ export function validateRawKeys(
   const diagnostics: Diagnostic[] = [];
   for (const key of Object.keys(value)) {
     if (ENTRY_KEYS.has(key)) continue;
+    const unsupported = UNSUPPORTED_ENTRY_KEYS.get(key);
+    if (unsupported !== undefined) {
+      diagnostics.push({ severity: "error", file, message: unsupported });
+      continue;
+    }
     if (key === "official") {
       diagnostics.push({
         severity: "error",

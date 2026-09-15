@@ -114,7 +114,7 @@
         },
         "sdk": {
           "type": "string",
-          "description": "bitty-plugin-sdk range, for example \"^0.1\".",
+          "description": "Plugin API range (the plugin manifest's `compat.plugin-api`), for example \"^0.1\".",
           "maxLength": 64
         }
       }
