@@ -9,7 +9,7 @@
 - The canonical remote is
   <https://github.com/bitty-terminal/bitty-plugins>.
 - Production surfaces (owner-provided, 2026-09-14): <https://bitty.run> is the
-  product website owned by `bitty-website` (Astro), and
+  product website owned by [`bitty-website`](https://github.com/bitty-terminal/bitty-website) (Astro), and
   <https://plugins.bitty.run> is this repository's plugin store. The domain was
   newly registered; Cloudflare verification may still be pending.
 - Organization-level Cloudflare variables `CLOUDFLARE_ACCOUNT_ID` and
@@ -17,8 +17,8 @@
   the `plugins.bitty.run` custom domain are provisioned outside this
   repository. Never commit credentials.
 - Canonical plugin architecture, manifest, security, packaging, and
-  compatibility contracts belong to `bitty-plugins-docs`, mounted here at
-  `docs/` as a Git submodule pinned to a commit. `bitty-docs` owns shared
+  compatibility contracts belong to [`bitty-plugins-docs`](https://github.com/bitty-terminal/bitty-plugins-docs), mounted here at
+  `docs/` as a Git submodule pinned to a commit. [`bitty-docs`](https://github.com/bitty-terminal/bitty-docs) owns shared
   governance (decisions, security corpus, reviews, project state). This
   repository must not invent manifest fields, capability semantics, or release
   policy.
@@ -34,8 +34,7 @@
 3. Verify the relevant contracts in the `docs/` submodule (bitty-plugins-docs)
    and `bitty-docs` before changing registry semantics or storefront claims;
    run `git submodule update --init` when `docs/` is empty.
-4. Prefer `ctxctl outline` / `ctxctl read` for inspection and `rg` for
-   discovery.
+4. Read narrowly (targeted sections first) and use `rg` for discovery.
 
 ## CarryCtx and delivery
 
@@ -109,11 +108,8 @@ docs` plus `git add docs`) and is excluded from registry and
 
 ## Toolchain policy
 
-- Never use `npm`, `npx`, or `yarn` here. JavaScript execution and package
-  management use `bun` / `bunx --bun` exclusively (Bun 1.4.0 unless a reviewed
-  task pins otherwise).
-- Never invoke formatters, linters, or the registry scripts directly by name in
-  documentation or hooks. Run gates through the justfile: `just check`, plus
+- JavaScript runs on `bun` (pinned version in the justfile).
+- Run quality gates via the repository justfile: `just check`, plus
   `just fmt`, `just lint`, `just type-check`, `just test`,
   `just registry-validate`, `just registry-generate`, `just app-build`.
 - Version pins live in exactly one place per pin: the justfile for bunx tool
@@ -160,8 +156,6 @@ docs` plus `git add docs`) and is excluded from registry and
 ## Workspace conventions
 
 - Run Git and CarryCtx inside this repository, never from the umbrella root.
-- Use the workspace `recording/` area for durable scratch material; ephemeral
-  scratch belongs under `/tmp`. Never write scratch outside those locations and
+- Use this repository's `recording/` (gitignored) area for durable scratch material; ephemeral
+  scratch belongs under `/tmp/bitty/`. Never write scratch outside those locations and
   never into unrelated workspace paths.
-- Prefer a collision-safe move under `../.trash/bitty-plugins/` over destructive
-  deletion; never move another agent's files.
