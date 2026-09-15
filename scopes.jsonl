@@ -33,3 +33,8 @@
 {"created_at":"2026-09-15T20:57:19.010939504+00:00","id":"01M2KDR7X3E40DJSGQ1A2AT011","kind":"include","pattern":"app/src/styles/components.css","project_id":"01M2E0AGA8R1CF9YMH8MENJ2Q9","task_id":"01M2KD564P6TF68STPT0664J3S"}
 {"created_at":"2026-09-15T20:57:19.039109017+00:00","id":"01M2KDR7XZ54DWV172FDTKEC71","kind":"include","pattern":"generated/registry.json","project_id":"01M2E0AGA8R1CF9YMH8MENJ2Q9","task_id":"01M2KD564P6TF68STPT0664J3S"}
 {"created_at":"2026-09-15T20:57:19.057908960+00:00","id":"01M2KDR7YHEE01DFDMTZY98XVA","kind":"include","pattern":"generated/registry.json","project_id":"01M2E0AGA8R1CF9YMH8MENJ2Q9","task_id":"01M2KCWBXPPVMEV2VETQNG4BW5"}
+{"created_at":"2026-09-15T21:21:02.900753942+00:00","id":"01M2KF3PDM5043SD0D2AVRT6VA","kind":"include","pattern":"scripts/semver.ts","project_id":"01M2E0AGA8R1CF9YMH8MENJ2Q9","task_id":"01M2KD566K7D0D8DDTZDYZF26A"}
+{"created_at":"2026-09-15T21:21:02.922246155+00:00","id":"01M2KF3PEAEGAG5XSWX6BPJJ12","kind":"include","pattern":"scripts/registry-lib.ts","project_id":"01M2E0AGA8R1CF9YMH8MENJ2Q9","task_id":"01M2KD566K7D0D8DDTZDYZF26A"}
+{"created_at":"2026-09-15T21:21:02.943127145+00:00","id":"01M2KF3PEZQ2G91CHEBDHH8QDF","kind":"include","pattern":"tests/registry.test.ts","project_id":"01M2E0AGA8R1CF9YMH8MENJ2Q9","task_id":"01M2KD566K7D0D8DDTZDYZF26A"}
+{"created_at":"2026-09-15T21:21:02.962660388+00:00","id":"01M2KF3PFJCDHSSTFRR59ZGSJW","kind":"include","pattern":"README.md","project_id":"01M2E0AGA8R1CF9YMH8MENJ2Q9","task_id":"01M2KD566K7D0D8DDTZDYZF26A"}
+{"created_at":"2026-09-15T21:21:02.984380531+00:00","id":"01M2KF3PG8ECR8V5WXCTS8ZS80","kind":"include","pattern":"CHANGELOG.md","project_id":"01M2E0AGA8R1CF9YMH8MENJ2Q9","task_id":"01M2KD566K7D0D8DDTZDYZF26A"}
