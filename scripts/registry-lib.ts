@@ -488,8 +488,22 @@ function validateSlugArray(
   diagnostics: Diagnostic[],
 ): void {
   if (values === undefined) return;
-  const seen = new Set<string>();
+  // Deduplicate case-insensitively and first: `["a", "A"]` is the same slug
+  // repeated, so it is reported as a duplicate rather than as a casing error,
+  // and the diagnostic does not depend on which casing appears first.
+  const seen = new Map<string, string>();
   for (const value of values) {
+    const key = value.toLowerCase();
+    const previous = seen.get(key);
+    if (previous !== undefined) {
+      diagnostics.push({
+        severity: "error",
+        file,
+        message: `\`${field}\` contains duplicate value "${value}" (case-insensitive; first declared as "${previous}")`,
+      });
+      continue;
+    }
+    seen.set(key, value);
     if (!SLUG_PATTERN.test(value) || value.length > 32) {
       diagnostics.push({
         severity: "error",
@@ -497,14 +511,6 @@ function validateSlugArray(
         message: `\`${field}\` entries must be lowercase slugs (max 32 chars): "${value}"`,
       });
     }
-    if (seen.has(value)) {
-      diagnostics.push({
-        severity: "error",
-        file,
-        message: `\`${field}\` contains duplicate value "${value}"`,
-      });
-    }
-    seen.add(value);
   }
 }
 
@@ -601,8 +607,11 @@ export function validateRawKeys(
   return diagnostics;
 }
 
-// Common SPDX identifiers; the list is intentionally conservative and unknown
-// identifiers only warn, so valid but unlisted licenses are not blocked.
+// Common SPDX identifiers. The list is intentionally conservative and the
+// policy is fail-closed: an identifier that is neither listed here nor a
+// `LicenseRef-` custom reference is a hard error, so an unverified license can
+// never reach the generated index. Add newly accepted identifiers here in a
+// reviewed change; `LicenseRef-<name>` is the escape hatch for private terms.
 const KNOWN_SPDX_IDS = new Set([
   "0BSD",
   "AGPL-3.0-only",
@@ -640,6 +649,16 @@ const KNOWN_SPDX_IDS = new Set([
   "Zlib",
 ]);
 
+// Well-known SPDX exception identifiers accepted after `WITH`. Kept small and
+// explicit (the single source of truth for exceptions): an exception that is
+// not listed here is a hard error. Extend in a reviewed change alongside
+// `KNOWN_SPDX_IDS`.
+const KNOWN_SPDX_EXCEPTIONS = new Set([
+  "Classpath-exception-2.0",
+  "GCC-exception-3.1",
+  "LLVM-exception",
+]);
+
 const SPDX_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9.+-]*$/;
 
 /** Validate an SPDX expression; returns hard errors and advisory warnings. */
@@ -655,11 +674,14 @@ export function checkLicense(expression: string): {
   if (tokens.length === 0) {
     return { error: "not a valid SPDX expression", warnings: [] };
   }
-  const identifiers: string[] = [];
+  const licenses: string[] = [];
+  const exceptions: string[] = [];
   let expectIdentifier = true;
+  let expectException = false;
+  let previousWasException = false;
   for (const token of tokens) {
     const upper = token.toUpperCase();
-    if (upper === "AND" || upper === "OR" || upper === "WITH") {
+    if (upper === "AND" || upper === "OR") {
       if (expectIdentifier) {
         return {
           error: `operator "${token}" must follow an identifier`,
@@ -667,6 +689,25 @@ export function checkLicense(expression: string): {
         };
       }
       expectIdentifier = true;
+      expectException = false;
+      previousWasException = false;
+      continue;
+    }
+    if (upper === "WITH") {
+      if (expectIdentifier) {
+        return {
+          error: `operator "${token}" must follow an identifier`,
+          warnings: [],
+        };
+      }
+      if (previousWasException) {
+        return {
+          error: '"WITH" cannot follow an exception identifier',
+          warnings: [],
+        };
+      }
+      expectIdentifier = true;
+      expectException = true;
       continue;
     }
     if (!SPDX_ID_PATTERN.test(token)) {
@@ -681,25 +722,50 @@ export function checkLicense(expression: string): {
         warnings: [],
       };
     }
-    identifiers.push(token);
+    if (expectException) {
+      exceptions.push(token);
+      expectException = false;
+      previousWasException = true;
+    } else {
+      licenses.push(token);
+      previousWasException = false;
+    }
     expectIdentifier = false;
   }
   if (expectIdentifier) {
     return { error: "expression must not end with an operator", warnings: [] };
   }
-  const warnings = identifiers
-    .filter((id) => !KNOWN_SPDX_IDS.has(id) && !id.startsWith("LicenseRef-"))
-    .map(
-      (id) =>
-        `"${id}" is not in the bundled common SPDX list; verify it is a real identifier`,
+  const unknownLicenses = licenses.filter(
+    (id) => !KNOWN_SPDX_IDS.has(id) && !id.startsWith("LicenseRef-"),
+  );
+  const unknownExceptions = exceptions.filter(
+    (id) => !KNOWN_SPDX_EXCEPTIONS.has(id),
+  );
+  const problems: string[] = [];
+  if (unknownLicenses.length > 0) {
+    problems.push(
+      `unknown SPDX license identifier(s) not in the bundled common list: ${unknownLicenses.join(", ")}`,
     );
-  return { warnings };
+  }
+  if (unknownExceptions.length > 0) {
+    problems.push(
+      `unknown SPDX exception identifier(s) not in the bundled common list: ${unknownExceptions.join(", ")}`,
+    );
+  }
+  if (problems.length > 0) {
+    return {
+      error: `${problems.join("; ")}; use a listed identifier or a LicenseRef- custom reference`,
+      warnings: [],
+    };
+  }
+  return { warnings: [] };
 }
 
 /** Duplicate and file-convention checks across all loaded entries. */
 export function validateRegistry(entries: LoadedEntry[]): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const byId = new Map<string, string>();
+  const byRepository = new Map<string, { id: string; file: string }>();
   for (const { entry, file } of entries) {
     const previous = byId.get(entry.id);
     if (previous !== undefined) {
@@ -710,6 +776,20 @@ export function validateRegistry(entries: LoadedEntry[]): Diagnostic[] {
       });
     } else if (entry.id.length > 0) {
       byId.set(entry.id, file);
+    }
+    if (entry.repository.length > 0) {
+      const normalized = normalizeRepositoryUrl(entry.repository);
+      const reused = byRepository.get(normalized);
+      if (reused !== undefined && reused.id !== entry.id) {
+        diagnostics.push({
+          severity: "warning",
+          file,
+          message: `repository URL "${entry.repository}" is already used by id "${reused.id}" (${reused.file})`,
+        });
+      }
+      if (reused === undefined) {
+        byRepository.set(normalized, { id: entry.id, file });
+      }
     }
     if (!file.startsWith(`${REGISTRY_DIR}/${COMMUNITY_DIR}/`)) continue;
     const name = basename(file);
@@ -734,6 +814,164 @@ export function repositoryName(repository: string): string {
   } catch {
     return "";
   }
+}
+
+/** Where a local SDK checkout came from, in resolution precedence order. */
+export type SdkSource = "env" | "submodule" | "sibling";
+
+/** Resolved local SDK checkout and the reference that located it. */
+export interface SdkDirResolution {
+  dir: string;
+  source: SdkSource;
+}
+
+/** Candidate SDK checkout locations, most explicit first. */
+export interface SdkDirCandidates {
+  /** Explicit override from `BITTY_PLUGIN_SDK_DIR`. */
+  envDir?: string;
+  /** In-repo submodule checkout, for example `<repo>/sdk`. */
+  submoduleDir: string;
+  /** Workspace-relative sibling checkouts, in preference order. */
+  siblingDirs: string[];
+}
+
+/**
+ * Resolve the SDK checkout directory: explicit environment override, then the
+ * in-repo `sdk/` submodule, then workspace-relative sibling repositories.
+ * `hasPackage` reports whether a directory holds the SDK `package.json`, so the
+ * caller owns filesystem access and this stays pure for tests. Returns null
+ * when no candidate exists; the caller then reports the gap rather than
+ * silently skipping the SDK manifest lint.
+ */
+export function resolveSdkDir(
+  candidates: SdkDirCandidates,
+  hasPackage: (dir: string) => boolean,
+): SdkDirResolution | null {
+  const ordered: SdkDirResolution[] = [];
+  const envDir = candidates.envDir?.trim();
+  if (envDir !== undefined && envDir.length > 0) {
+    ordered.push({ dir: envDir, source: "env" });
+  }
+  ordered.push({ dir: candidates.submoduleDir, source: "submodule" });
+  for (const dir of candidates.siblingDirs) {
+    ordered.push({ dir, source: "sibling" });
+  }
+  return ordered.find((candidate) => hasPackage(candidate.dir)) ?? null;
+}
+
+/** Candidate local paths for one official plugin's manifest. */
+export interface OfficialManifestCandidates {
+  /** In-repo submodule checkout, for example `plugins/<name>/bitty-plugin.toml`. */
+  submoduleManifest: string;
+  /** Workspace-relative sibling repositories, in preference order. */
+  siblingManifests: string[];
+}
+
+/**
+ * Pick the first existing official manifest path, preferring the in-repo
+ * submodule checkout over workspace-relative sibling repositories. Returns null
+ * when nothing exists so the caller can report the coverage gap loudly instead
+ * of silently passing an unchecked entry.
+ */
+export function resolveOfficialManifest(
+  candidates: OfficialManifestCandidates,
+  exists: (path: string) => boolean,
+): string | null {
+  return (
+    [candidates.submoduleManifest, ...candidates.siblingManifests].find(
+      (path) => exists(path),
+    ) ?? null
+  );
+}
+
+/**
+ * Aggregate warning for official entries whose local manifest could not be
+ * resolved. Returning a diagnostic (rather than letting the caller silently
+ * `continue`) is what keeps an unverifiable official gate visible instead of
+ * passing as an unchecked green. Returns null when nothing was unresolved.
+ */
+export function unresolvedOfficialManifestWarning(
+  unresolved: string[],
+): Diagnostic | null {
+  if (unresolved.length === 0) return null;
+  return {
+    severity: "warning",
+    file: "registry/",
+    message: `official manifest checks skipped for ${unresolved.length} entr(ies) (${[...unresolved].sort().join(", ")}): no local checkout at plugins/<name> or the workspace sibling; initialize submodules or place the repositories in the workspace`,
+  };
+}
+
+/** Entries whose repository URL can be checked over the network. */
+export function countNetworkRepositories(entries: LoadedEntry[]): number {
+  return entries.filter(({ entry }) => entry.repository.startsWith("https://"))
+    .length;
+}
+
+/** Outcome of a tiered repository existence check. */
+export interface RepositoryExistenceOutcome {
+  diagnostics: Diagnostic[];
+  /** Entries whose URL was checked (including 4xx/5xx responses). */
+  checked: number;
+  /** Entries left unchecked after a network error; zero when fully checked. */
+  skipped: number;
+  /** True when a network exception stopped the phase early. */
+  offline: boolean;
+}
+
+/** Network access needed by the repository existence phase, injected for tests. */
+export interface RepositoryExistencePorts {
+  /** Request a repository URL; throw only to signal the network is unavailable. */
+  check: (url: string) => Promise<{ status: number }>;
+}
+
+/**
+ * Tiered repository existence checks.
+ *
+ * Every `https://` entry is checked in order. `404`/`410` are hard errors and
+ * other `4xx`/`5xx` responses warn, because the host answered. A thrown network
+ * error skips only the still-unchecked entries and reports the count through
+ * `skipped`, so one timeout can never void the whole existence gate (the caller
+ * decides how loudly to surface the gap). Pure apart from the injected port.
+ */
+export async function checkRepositoryExistence(
+  entries: LoadedEntry[],
+  ports: RepositoryExistencePorts,
+): Promise<RepositoryExistenceOutcome> {
+  const diagnostics: Diagnostic[] = [];
+  const checkable = entries.filter(({ entry }) =>
+    entry.repository.startsWith("https://"),
+  );
+  let checked = 0;
+  let offline = false;
+  for (const { entry, file } of checkable) {
+    let status: number;
+    try {
+      ({ status } = await ports.check(entry.repository));
+    } catch {
+      offline = true;
+      break;
+    }
+    checked += 1;
+    if (status === 404 || status === 410) {
+      diagnostics.push({
+        severity: "error",
+        file,
+        message: `repository not found (HTTP ${status}): ${entry.repository}`,
+      });
+    } else if (status >= 400) {
+      diagnostics.push({
+        severity: "warning",
+        file,
+        message: `repository returned HTTP ${status}: ${entry.repository}`,
+      });
+    }
+  }
+  return {
+    diagnostics,
+    checked,
+    skipped: checkable.length - checked,
+    offline,
+  };
 }
 
 export interface SubmoduleEntry {

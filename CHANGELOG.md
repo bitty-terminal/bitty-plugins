@@ -44,6 +44,12 @@ and this project adheres to
   (store); the domain was registered on 2026-09-14 and verification may still
   be pending.
 
+- `BITTY_PLUGIN_SDK_DIR` overrides the SDK checkout used by `registry-validate`
+  for the authoritative manifest lint; when unset the in-repo `sdk/` submodule
+  and then the workspace-relative `bitty-plugin-sdk` sibling are tried, and an
+  official entry whose local manifest cannot be resolved is reported as a
+  counted warning instead of silently skipped.
+
 ### Changed
 
 - A registry entry that declares a `dependencies` table now fails validation
@@ -59,6 +65,19 @@ and this project adheres to
   gated only by those client-side format checks. Signature integrity fields and
   the index-provided `signature_status` are advisory in this phase (not
   client-verified) and appear only as a badge/grey-out.
+
+- `registry-validate` repository existence checks are tiered: a network error
+  skips only the entries that had not been checked yet and reports the skipped
+  count, `404`/`410` stay hard errors, and `--skip-network` prints how many
+  entries it skipped.
+
+- `registry-validate` reports a duplicate `repository` URL used by different
+  `id`s as a warning, deduplicates `tags`/`categories` case-insensitively, and
+  treats an unknown SPDX license or `WITH` exception identifier as a hard error
+  instead of a warning, so an unverified license can no longer reach the
+  generated index. `LicenseRef-<name>` remains the escape hatch for custom
+  terms, and the common exceptions `Classpath-exception-2.0`,
+  `GCC-exception-3.1`, and `LLVM-exception` are accepted after `WITH`.
 
 - `app/` is now a Vite + TypeScript project rendering the registry through
   small custom elements, replacing the custom Bun build. The Vite build emits

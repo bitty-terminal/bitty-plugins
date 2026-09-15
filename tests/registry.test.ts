@@ -3,9 +3,11 @@ import {
   buildIndex,
   checkLicense,
   checkPinReachability,
+  checkRepositoryExistence,
   checkSubmoduleConsistency,
   collectOfficialPins,
   COMPATIBILITY_MANIFEST_FIELDS,
+  countNetworkRepositories,
   countSeverity,
   githubRepoSlug,
   isPinReachable,
@@ -15,6 +17,9 @@ import {
   parseIndex,
   renderIndex,
   repositoryName,
+  resolveOfficialManifest,
+  resolveSdkDir,
+  unresolvedOfficialManifestWarning,
   validateEntry,
   validateRawKeys,
   validateRegistry,
@@ -146,10 +151,30 @@ describe("SPDX license validation", () => {
     expect(checkLicense("").error).toBeDefined();
   });
 
-  test("warns, but does not fail, on unrecognized identifiers", () => {
+  test("blocks unrecognized identifiers and accepts LicenseRef references", () => {
     const result = checkLicense("Some-Custom-License");
-    expect(result.error).toBeUndefined();
-    expect(result.warnings.length).toBe(1);
+    expect(result.error).toBeDefined();
+    expect(result.warnings).toEqual([]);
+    expect(checkLicense("LicenseRef-Custom-Terms").error).toBeUndefined();
+    expect(checkLicense("LicenseRef-foo").error).toBeUndefined();
+  });
+
+  test("accepts allowlisted WITH exceptions and rejects unknown ones", () => {
+    expect(
+      checkLicense("Apache-2.0 WITH LLVM-exception").error,
+    ).toBeUndefined();
+    expect(
+      checkLicense("GPL-2.0-only WITH Classpath-exception-2.0").error,
+    ).toBeUndefined();
+    expect(
+      checkLicense("GPL-2.0-only WITH GCC-exception-3.1").error,
+    ).toBeUndefined();
+    const unknown = checkLicense("MIT WITH Not-An-Exception");
+    expect(unknown.error).toBeDefined();
+    expect(unknown.error).toContain("exception identifier");
+    expect(
+      checkLicense("MIT WITH LLVM-exception WITH GCC-exception-3.1").error,
+    ).toBeDefined();
   });
 });
 
@@ -190,6 +215,35 @@ describe("entry validation", () => {
     );
     expect(errorsOf({ ...baseEntry, tags: ["a", "a"] }).length).toBeGreaterThan(
       0,
+    );
+  });
+
+  test("deduplicates tags case-insensitively as duplicate errors", () => {
+    const messages = errorsOf({ ...baseEntry, tags: ["a", "A"] });
+    expect(messages.some((message) => message.includes("duplicate"))).toBe(
+      true,
+    );
+    expect(
+      messages.some((message) => message.includes("lowercase slugs")),
+    ).toBe(false);
+    expect(
+      errorsOf({ ...baseEntry, tags: ["A"] }).some((message) =>
+        message.includes("lowercase slugs"),
+      ),
+    ).toBe(true);
+  });
+
+  test("blocks unknown SPDX identifiers but allows known and LicenseRef licenses", () => {
+    expect(
+      errorsOf({ ...baseEntry, license: "Some-Custom-License" }).some(
+        (message) => message.includes("license"),
+      ),
+    ).toBe(true);
+    expect(
+      errorsOf({ ...baseEntry, license: "LicenseRef-Proprietary" }),
+    ).toEqual([]);
+    expect(errorsOf({ ...baseEntry, license: "MIT OR Apache-2.0" })).toEqual(
+      [],
     );
   });
 
@@ -316,6 +370,56 @@ describe("registry-wide validation", () => {
     ).toBe(true);
   });
 
+  test("warns when one repository URL is reused by different ids", () => {
+    const diagnostics = validateRegistry([
+      loaded(
+        { ...baseEntry, id: "a.plugin" },
+        "registry/community/example-a.toml",
+      ),
+      loaded(
+        { ...baseEntry, id: "b.plugin" },
+        "registry/community/example-b.toml",
+      ),
+    ]);
+    const warning = diagnostics.find(
+      (diagnostic) =>
+        diagnostic.severity === "warning" &&
+        diagnostic.message.includes("already used by id"),
+    );
+    expect(warning).toBeDefined();
+    expect(warning?.file).toBe("registry/community/example-b.toml");
+    expect(warning?.message).toContain("a.plugin");
+    expect(warning?.message).toContain("example-a.toml");
+  });
+
+  test("normalizes .git and trailing slashes when detecting reuse", () => {
+    const diagnostics = validateRegistry([
+      loaded(
+        {
+          ...baseEntry,
+          id: "a.plugin",
+          repository: "https://github.com/example/sample-plugin",
+        },
+        "registry/community/example-a.toml",
+      ),
+      loaded(
+        {
+          ...baseEntry,
+          id: "b.plugin",
+          repository: "https://github.com/example/sample-plugin.git",
+        },
+        "registry/community/example-b.toml",
+      ),
+    ]);
+    expect(
+      diagnostics.some(
+        (diagnostic) =>
+          diagnostic.severity === "warning" &&
+          diagnostic.message.includes("already used by id"),
+      ),
+    ).toBe(true);
+  });
+
   test("enforces community file naming and ignores official file names", () => {
     const badCommunity = validateRegistry([
       loaded(baseEntry, "registry/community/sample.toml"),
@@ -331,6 +435,142 @@ describe("registry-wide validation", () => {
     expect(
       official.filter((diagnostic) => diagnostic.severity === "error"),
     ).toEqual([]);
+  });
+});
+
+describe("local checkout resolution", () => {
+  test("prefers the SDK env override, then submodule, then sibling", () => {
+    const candidates = {
+      envDir: "env/sdk",
+      submoduleDir: "repo/sdk",
+      siblingDirs: ["workspace/bitty-plugin-sdk"],
+    };
+    expect(
+      resolveSdkDir(
+        candidates,
+        (dir) =>
+          dir === "env/sdk" ||
+          dir === "repo/sdk" ||
+          dir === "workspace/bitty-plugin-sdk",
+      ),
+    ).toEqual({ dir: "env/sdk", source: "env" });
+    expect(
+      resolveSdkDir(
+        candidates,
+        (dir) => dir === "repo/sdk" || dir === "workspace/bitty-plugin-sdk",
+      ),
+    ).toEqual({ dir: "repo/sdk", source: "submodule" });
+    expect(
+      resolveSdkDir(candidates, (dir) => dir === "workspace/bitty-plugin-sdk"),
+    ).toEqual({ dir: "workspace/bitty-plugin-sdk", source: "sibling" });
+    expect(resolveSdkDir(candidates, () => false)).toBeNull();
+  });
+
+  test("ignores a blank SDK override and falls through to the submodule", () => {
+    expect(
+      resolveSdkDir(
+        { envDir: "   ", submoduleDir: "repo/sdk", siblingDirs: [] },
+        (dir) => dir === "repo/sdk",
+      ),
+    ).toEqual({ dir: "repo/sdk", source: "submodule" });
+  });
+
+  test("resolves an official manifest, preferring the submodule checkout", () => {
+    const submoduleManifest = "repo/plugins/activity/bitty-plugin.toml";
+    const siblingManifest = "workspace/activity/bitty-plugin.toml";
+    const candidates = {
+      submoduleManifest,
+      siblingManifests: [siblingManifest],
+    };
+    expect(
+      resolveOfficialManifest(
+        candidates,
+        (path) => path === submoduleManifest || path === siblingManifest,
+      ),
+    ).toBe(submoduleManifest);
+    expect(
+      resolveOfficialManifest(candidates, (path) => path === siblingManifest),
+    ).toBe(siblingManifest);
+    expect(resolveOfficialManifest(candidates, () => false)).toBeNull();
+  });
+
+  test("reports unresolved official manifests as a counted warning", () => {
+    expect(unresolvedOfficialManifestWarning([])).toBeNull();
+    const warning = unresolvedOfficialManifestWarning([
+      "statusline",
+      "activity",
+    ]);
+    expect(warning?.severity).toBe("warning");
+    expect(warning?.file).toBe("registry/");
+    expect(warning?.message).toContain("2 entr(ies)");
+    expect(warning?.message).toContain("activity, statusline");
+  });
+});
+
+describe("repository existence tiering", () => {
+  function repoEntry(id: string, repository: string): LoadedEntry {
+    return loaded(
+      { ...baseEntry, id, repository },
+      `registry/community/example-${id.split(".")[0]}.toml`,
+    );
+  }
+
+  test("skips only unchecked entries after a network error and counts them", async () => {
+    const entries = [
+      repoEntry("a.plugin", "https://github.com/example/a"),
+      repoEntry("b.plugin", "https://github.com/example/b"),
+      repoEntry("c.plugin", "https://github.com/example/c"),
+    ];
+    let calls = 0;
+    const outcome = await checkRepositoryExistence(entries, {
+      check: async () => {
+        calls += 1;
+        if (calls === 2) throw new Error("fetch failed");
+        return { status: 200 };
+      },
+    });
+    expect(outcome.offline).toBe(true);
+    expect(outcome.checked).toBe(1);
+    expect(outcome.skipped).toBe(2);
+    expect(outcome.diagnostics).toEqual([]);
+  });
+
+  test("keeps 404/410 as errors and other HTTP failures as warnings", async () => {
+    const statuses = [404, 410, 500, 200, 403];
+    const entries = statuses.map((_, index) =>
+      repoEntry(
+        `repo-${index}.plugin`,
+        `https://github.com/example/repo-${index}`,
+      ),
+    );
+    let index = 0;
+    const outcome = await checkRepositoryExistence(entries, {
+      check: async () => ({ status: statuses[index++] ?? 200 }),
+    });
+    expect(outcome.offline).toBe(false);
+    expect(outcome.checked).toBe(statuses.length);
+    expect(outcome.skipped).toBe(0);
+    const errors = outcome.diagnostics.filter((d) => d.severity === "error");
+    const warnings = outcome.diagnostics.filter(
+      (d) => d.severity === "warning",
+    );
+    expect(errors.length).toBe(2);
+    expect(
+      errors.every((d) => d.message.includes("repository not found")),
+    ).toBe(true);
+    expect(warnings.length).toBe(2);
+    expect(warnings.every((d) => d.message.includes("returned HTTP"))).toBe(
+      true,
+    );
+  });
+
+  test("counts only network-checkable repository URLs", () => {
+    const entries = [
+      repoEntry("a.plugin", "https://github.com/example/a"),
+      repoEntry("b.plugin", "http://example.com/b/c"),
+      repoEntry("c.plugin", "not-a-url"),
+    ];
+    expect(countNetworkRepositories(entries)).toBe(1);
   });
 });
 
