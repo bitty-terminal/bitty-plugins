@@ -10,6 +10,15 @@ and this project adheres to
 
 ### Added
 
+- Registry `[compatibility]` range validation is backed by the structural
+  parser in `scripts/semver.ts` as the single semver source. The accepted
+  grammar is documented once by `VERSION_RANGE_SYNTAX` and reused verbatim in
+  diagnostics, and `versionRangeProblem` reports the structural reason; tests
+  assert those reasons for malformed comparator shapes (`>>>`), empty
+  `,`/`||` branches, and leading/trailing `||`. `COMPATIBILITY_MANIFEST_FIELDS`
+  records the registry `sdk` ↔ manifest `compat.plugin-api` naming map so the
+  two ranges can be reviewed together.
+
 - Optional `manifest_hash` and `signature` (`algorithm`, `value`, `signer`)
   fields in `registry/schema.json`. They are shape-checked when present and an
   unsigned entry only warns, so integrity data can be introduced without
@@ -36,6 +45,13 @@ and this project adheres to
   be pending.
 
 ### Changed
+
+- A registry entry that declares a `dependencies` table now fails validation
+  with an explicit "not supported in registry entries" error instead of a
+  generic unknown-key error. Registry dependencies remain unsupported in this
+  phase (no version intersection, cycle detection, or index field); plugin
+  dependencies stay in the plugin manifest `bitty-plugin.toml` `[dependencies]`
+  table. See the README "Dependency model" section.
 
 - The store frontend now re-validates entry `id` and `repository` formats at
   load time, restricts external links to `https:`, and produces no install

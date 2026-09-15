@@ -5,6 +5,7 @@ import {
   checkPinReachability,
   checkSubmoduleConsistency,
   collectOfficialPins,
+  COMPATIBILITY_MANIFEST_FIELDS,
   countSeverity,
   githubRepoSlug,
   isPinReachable,
@@ -35,7 +36,11 @@ import {
   isCopyAllowed,
   isRegistry,
 } from "../app/src/registry.ts";
-import { isValidVersionRange } from "../scripts/semver.ts";
+import {
+  isValidVersionRange,
+  versionRangeProblem,
+  VERSION_RANGE_SYNTAX,
+} from "../scripts/semver.ts";
 
 const baseEntry: RegistryEntry = {
   id: "sample.plugin",
@@ -85,6 +90,50 @@ describe("semver range syntax", () => {
     ]) {
       expect(isValidVersionRange(range)).toBe(false);
     }
+  });
+
+  test("rejects comparator-structure and empty-branch nonsense (R8/R27)", () => {
+    for (const range of [
+      ">>>",
+      "|||",
+      "||",
+      "^0.1 ||",
+      "|| ^0.1",
+      "^0.1 || || ^0.2",
+      ">=1.0,",
+      ",>=1.0",
+      ">=1.0,,<2.0",
+      ">=",
+      "1.2.3.4",
+    ]) {
+      expect(isValidVersionRange(range)).toBe(false);
+    }
+  });
+
+  test("accepts the documented grammar", () => {
+    for (const range of [
+      ">=0.5,<1.0",
+      "^0.1",
+      "~1.2.3",
+      "*",
+      "1.2.3",
+      ">= 0.5",
+      "^0.1 || ^0.2",
+      "1.0.0-rc.1",
+      "0.1",
+    ]) {
+      expect(isValidVersionRange(range)).toBe(true);
+    }
+    expect(VERSION_RANGE_SYNTAX).toContain("comma-separated comparators");
+  });
+
+  test("reports the structural problem for rejected ranges", () => {
+    expect(versionRangeProblem(">>>")).toContain("not a comparator");
+    expect(versionRangeProblem("|||")).toContain("empty alternative");
+    expect(versionRangeProblem("^0.1 ||")).toContain("empty alternative");
+    expect(versionRangeProblem(">=1.0,,<2.0")).toContain("empty comparator");
+    expect(versionRangeProblem("")).toContain("empty");
+    expect(versionRangeProblem(">=0.5,<1.0")).toBeNull();
   });
 });
 
@@ -170,6 +219,82 @@ describe("entry validation", () => {
     expect(
       messages.some((message) => message.includes("compatibility.rust")),
     ).toBe(true);
+  });
+});
+
+describe("compatibility naming and version ranges (R8/R27)", () => {
+  test("maps registry keys to their manifest compat fields", () => {
+    expect(COMPATIBILITY_MANIFEST_FIELDS).toEqual({
+      bitty: "bitty",
+      sdk: "plugin-api",
+    });
+  });
+
+  test("rejects structurally invalid ranges with the shared grammar", () => {
+    for (const range of [">>>", "|||", "^0.1 ||", ">=1.0,,<2.0"]) {
+      const messages = errorsOf({
+        ...baseEntry,
+        compatibility: { sdk: range },
+      });
+      expect(messages.length).toBeGreaterThan(0);
+      expect(messages.some((message) => message.includes("semver range"))).toBe(
+        true,
+      );
+      expect(
+        messages.some((message) => message.includes(VERSION_RANGE_SYNTAX)),
+      ).toBe(true);
+    }
+  });
+
+  test("accepts the documented grammar in compatibility ranges", () => {
+    expect(
+      errorsOf({
+        ...baseEntry,
+        compatibility: { bitty: ">=0.5,<1.0", sdk: "^0.1 || ^0.2" },
+      }),
+    ).toEqual([]);
+  });
+
+  test("rejects the manifest-side `plugin-api` key in a registry entry", () => {
+    const messages = validateRawKeys(
+      {
+        id: "sample.plugin",
+        name: "Sample",
+        repository: "https://github.com/example/sample-plugin",
+        compatibility: { bitty: ">=0.5", "plugin-api": "^1.0" },
+      },
+      "registry/community/example-sample.toml",
+    ).map((diagnostic) => diagnostic.message);
+    expect(
+      messages.some((message) =>
+        message.includes("unknown key `compatibility.plugin-api`"),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("registry dependency model (R9)", () => {
+  test("rejects a registry entry declaring dependencies with a clear error", () => {
+    const messages = validateRawKeys(
+      {
+        id: "sample.plugin",
+        name: "Sample",
+        repository: "https://github.com/example/sample-plugin",
+        dependencies: { "other.plugin": "^1.0" },
+      },
+      "registry/community/example-sample.toml",
+    ).map((diagnostic) => diagnostic.message);
+    expect(messages.some((message) => message.includes("`dependencies`"))).toBe(
+      true,
+    );
+    expect(
+      messages.some((message) =>
+        message.includes("not supported in registry entries"),
+      ),
+    ).toBe(true);
+    expect(messages.some((message) => message.includes("unknown key"))).toBe(
+      false,
+    );
   });
 });
 
