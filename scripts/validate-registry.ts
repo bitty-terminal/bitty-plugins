@@ -11,17 +11,22 @@
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   REPO_ROOT,
   checkPinReachability,
+  checkRepositoryExistence,
   checkSubmoduleConsistency,
   collectOfficialPins,
+  countNetworkRepositories,
   countSeverity,
   formatDiagnostic,
   loadEntries,
   parseGitmodules,
   repositoryName,
+  resolveOfficialManifest,
+  resolveSdkDir,
+  unresolvedOfficialManifestWarning,
   validateEntry,
   validateRawKeys,
   validateRegistry,
@@ -29,6 +34,7 @@ import {
   type Diagnostic,
   type GitHubSlug,
   type LoadedEntry,
+  type SdkDirResolution,
   type SubmoduleEntry,
 } from "./registry-lib.ts";
 
@@ -39,6 +45,15 @@ const PIN_COMPARE_TIMEOUT_MS = 10000;
 const PIN_LS_REMOTE_TIMEOUT_MS = 15000;
 const PIN_GIT_TIMEOUT_MS = 15000;
 const PIN_CHECK_BUDGET_MS = 60000;
+
+/** Explicit override for the SDK checkout used by the manifest lint. */
+const SDK_ENV_VAR = "BITTY_PLUGIN_SDK_DIR";
+/** Marker that identifies the flat workspace root holding sibling repositories. */
+const WORKSPACE_MANIFEST_FILE = "workspace.toml";
+/** Submodule path of the SDK checkout inside this repository. */
+const SDK_SUBMODULE_PATH = "sdk";
+/** Official plugin manifest file name inside a repository checkout. */
+const PLUGIN_MANIFEST_FILE = "bitty-plugin.toml";
 
 const USAGE = `usage: bun scripts/validate-registry.ts [--skip-network]
 
@@ -66,65 +81,143 @@ async function fetchWithTimeout(url: string): Promise<Response> {
   }
 }
 
-/** Bounded repository existence checks that stop at the first offline signal. */
+/**
+ * Bounded repository existence checks. The tiering itself lives in the shared
+ * helper: `404`/`410` stay hard errors, other HTTP responses warn, and a
+ * network error skips only the still-unchecked entries. The skipped count is
+ * always reported so an offline run cannot silently void the existence gate.
+ */
 async function checkRepositoriesOnline(
   entries: LoadedEntry[],
 ): Promise<Diagnostic[]> {
-  const diagnostics: Diagnostic[] = [];
-  let offline = false;
-  for (const { entry, file } of entries) {
-    if (offline) break;
-    if (!entry.repository.startsWith("https://")) continue;
-    try {
-      const response = await fetchWithTimeout(entry.repository);
-      if (response.status === 404 || response.status === 410) {
-        diagnostics.push({
-          severity: "error",
-          file,
-          message: `repository not found (HTTP ${response.status}): ${entry.repository}`,
-        });
-      } else if (response.status >= 400) {
-        diagnostics.push({
-          severity: "warning",
-          file,
-          message: `repository returned HTTP ${response.status}: ${entry.repository}`,
-        });
-      }
-    } catch (error) {
-      offline = true;
-      console.log(
-        `notice: network unavailable (${error instanceof Error ? error.message : String(error)}); skipping remaining repository existence checks`,
-      );
-    }
+  const outcome = await checkRepositoryExistence(entries, {
+    check: (url) => fetchWithTimeout(url),
+  });
+  if (outcome.offline) {
+    console.log(
+      `notice: repository existence checks: ${outcome.checked} checked, ${outcome.skipped} skipped after a network error (unverified)`,
+    );
+    return [
+      ...outcome.diagnostics,
+      {
+        severity: "warning",
+        file: "registry/",
+        message: `repository existence checks skipped for ${outcome.skipped} entr(ies) after a network error; they remain unverified`,
+      },
+    ];
   }
-  return diagnostics;
+  return outcome.diagnostics;
 }
 
 interface ParsedManifest {
   plugin?: { id?: unknown; name?: unknown; license?: unknown };
 }
 
-/** Compare local official-plugin manifests with their registry entries. */
+/**
+ * Nearest ancestor directory of the checkout that carries the flat-workspace
+ * marker, or null when the checkout is standalone. Walking up (rather than
+ * assuming the parent) keeps sibling resolution working from a linked Git
+ * worktree like `.worktrees/<task>`, and never invents a host path.
+ */
+function resolveWorkspaceRoot(): string | null {
+  let current = resolve(REPO_ROOT, "..");
+  while (true) {
+    if (existsSync(join(current, WORKSPACE_MANIFEST_FILE))) return current;
+    const parent = resolve(current, "..");
+    if (parent === current) return null;
+    current = parent;
+  }
+}
+
+/**
+ * Resolve the SDK checkout: the `BITTY_PLUGIN_SDK_DIR` override first, then the
+ * in-repo `sdk/` submodule, then the workspace-relative sibling named after the
+ * SDK submodule URL. The sibling name is derived from `.gitmodules`, so no
+ * repository name or host path is hardcoded here.
+ */
+function resolveSdkLocation(): SdkDirResolution | null {
+  const { submodules } = loadSubmoduleState();
+  const sdkSubmodule = submodules.find(
+    (submodule) => submodule.path === SDK_SUBMODULE_PATH,
+  );
+  const workspace = resolveWorkspaceRoot();
+  const siblingDirs: string[] = [];
+  if (workspace !== null && sdkSubmodule !== undefined) {
+    const sibling = repositoryName(sdkSubmodule.url);
+    if (sibling.length > 0) siblingDirs.push(join(workspace, sibling));
+  }
+  return resolveSdkDir(
+    {
+      envDir: process.env[SDK_ENV_VAR],
+      submoduleDir: join(REPO_ROOT, SDK_SUBMODULE_PATH),
+      siblingDirs,
+    },
+    (dir) => existsSync(join(dir, "package.json")),
+  );
+}
+
+/** A manifest path label that never embeds an absolute host path. */
+function manifestLabel(name: string, path: string): string {
+  const submodulePath = join(REPO_ROOT, "plugins", name, PLUGIN_MANIFEST_FILE);
+  return path === submodulePath
+    ? path.slice(REPO_ROOT.length + 1)
+    : `${name}/${PLUGIN_MANIFEST_FILE} (workspace sibling)`;
+}
+
+/**
+ * Compare local official-plugin manifests with their registry entries.
+ *
+ * A manifest is resolved from the `plugins/<name>` submodule checkout or a
+ * workspace-relative sibling repository. When neither exists the entry is not
+ * silently skipped: an aggregate warning with the count is emitted so the
+ * coverage gap is visible in CI instead of passing as an unchecked green.
+ */
 function checkLocalManifests(entries: LoadedEntry[]): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
-  const sdkCli = discoverSdkCli();
-  const sdkReady = sdkCli !== null && ensureSdkDependencies();
-  if (sdkCli !== null && sdkReady) {
+  const sdk = resolveSdkLocation();
+  const sdkCli = sdk === null ? null : discoverSdkCli(sdk.dir);
+  const sdkReady =
+    sdk !== null && sdkCli !== null && ensureSdkDependencies(sdk.dir);
+  if (sdk !== null && sdkCli !== null && sdkReady) {
     console.log(
-      `notice: using SDK manifest tooling at ${sdkCli.slice(REPO_ROOT.length + 1)}`,
+      `notice: using SDK manifest tooling from the ${sdk.source} checkout`,
     );
-  } else if (existsSync(join(REPO_ROOT, "sdk", "package.json"))) {
+  } else if (sdk !== null) {
     console.log(
       "notice: SDK manifest tooling is unavailable (no bin entry or dependencies unavailable); skipping SDK lint",
     );
+  } else {
+    console.log(
+      `notice: SDK manifest tooling not found (set ${SDK_ENV_VAR}, initialize the ${SDK_SUBMODULE_PATH}/ submodule, or add the sibling SDK repository); skipping SDK lint`,
+    );
   }
 
+  const workspace = resolveWorkspaceRoot();
+  const unresolved: string[] = [];
   for (const { entry, file, official } of entries) {
     if (!official) continue;
     const name = repositoryName(entry.repository);
     if (name.length === 0) continue;
-    const manifestPath = join(REPO_ROOT, "plugins", name, "bitty-plugin.toml");
-    if (!existsSync(manifestPath)) continue;
+    const manifestPath = resolveOfficialManifest(
+      {
+        submoduleManifest: join(
+          REPO_ROOT,
+          "plugins",
+          name,
+          PLUGIN_MANIFEST_FILE,
+        ),
+        siblingManifests:
+          workspace === null
+            ? []
+            : [join(workspace, name, PLUGIN_MANIFEST_FILE)],
+      },
+      existsSync,
+    );
+    if (manifestPath === null) {
+      unresolved.push(name);
+      continue;
+    }
+    const label = manifestLabel(name, manifestPath);
 
     let manifest: ParsedManifest;
     try {
@@ -135,7 +228,7 @@ function checkLocalManifests(entries: LoadedEntry[]): Diagnostic[] {
       diagnostics.push({
         severity: "error",
         file,
-        message: `cannot parse plugins/${name}/bitty-plugin.toml: ${error instanceof Error ? error.message : String(error)}`,
+        message: `cannot parse ${label}: ${error instanceof Error ? error.message : String(error)}`,
       });
       continue;
     }
@@ -145,7 +238,7 @@ function checkLocalManifests(entries: LoadedEntry[]): Diagnostic[] {
       diagnostics.push({
         severity: "error",
         file,
-        message: `registry id "${entry.id}" does not match manifest plugins/${name}/bitty-plugin.toml plugin.id "${manifestId}"`,
+        message: `registry id "${entry.id}" does not match manifest plugin.id "${manifestId}" in ${label}`,
       });
     }
     const manifestName = manifest.plugin?.name;
@@ -153,7 +246,7 @@ function checkLocalManifests(entries: LoadedEntry[]): Diagnostic[] {
       diagnostics.push({
         severity: "warning",
         file,
-        message: `registry name "${entry.name}" differs from manifest plugin.name "${manifestName}"`,
+        message: `registry name "${entry.name}" differs from manifest plugin.name "${manifestName}" (${label})`,
       });
     }
     const manifestLicense = manifest.plugin?.license;
@@ -165,7 +258,7 @@ function checkLocalManifests(entries: LoadedEntry[]): Diagnostic[] {
       diagnostics.push({
         severity: "warning",
         file,
-        message: `registry license "${entry.license}" differs from manifest plugin.license "${manifestLicense}"`,
+        message: `registry license "${entry.license}" differs from manifest plugin.license "${manifestLicense}" (${label})`,
       });
     }
 
@@ -181,25 +274,28 @@ function checkLocalManifests(entries: LoadedEntry[]): Diagnostic[] {
         diagnostics.push({
           severity: "error",
           file,
-          message: `SDK manifest lint failed for plugins/${name}/bitty-plugin.toml${stderr.length > 0 ? `: ${stderr}` : ""}`,
+          message: `SDK manifest lint failed for ${label}${stderr.length > 0 ? `: ${stderr}` : ""}`,
         });
       }
     }
+  }
+  if (unresolved.length > 0) {
+    const warning = unresolvedOfficialManifestWarning(unresolved);
+    if (warning !== null) diagnostics.push(warning);
   }
   return diagnostics;
 }
 
 /**
  * Ensure the SDK tooling's dependencies are installed before invoking it.
- * Installs with the SDK lockfile when `sdk/node_modules` is missing; offline
+ * Installs with the SDK lockfile when `node_modules` is missing; offline
  * installs fail soft so the SDK lint is skipped with a notice.
  */
-function ensureSdkDependencies(): boolean {
-  const sdkDir = join(REPO_ROOT, "sdk");
+function ensureSdkDependencies(sdkDir: string): boolean {
   if (!existsSync(join(sdkDir, "package.json"))) return false;
   if (existsSync(join(sdkDir, "node_modules"))) return true;
   console.log(
-    "notice: installing SDK tooling dependencies (sdk/node_modules missing)",
+    "notice: installing SDK tooling dependencies (node_modules missing)",
   );
   const result = Bun.spawnSync({
     cmd: ["bun", "install", "--frozen-lockfile"],
@@ -218,18 +314,18 @@ function ensureSdkDependencies(): boolean {
   return true;
 }
 
-/** Discover an SDK CLI entry point from sdk/package.json `bin` when present. */
-function discoverSdkCli(): string | null {
-  const packagePath = join(REPO_ROOT, "sdk", "package.json");
+/** Discover the SDK CLI entry point from the SDK's `package.json` `bin`. */
+function discoverSdkCli(sdkDir: string): string | null {
+  const packagePath = join(sdkDir, "package.json");
   if (!existsSync(packagePath)) return null;
   try {
     const pkg = JSON.parse(readFileSync(packagePath, "utf8")) as {
       bin?: unknown;
     };
-    if (typeof pkg.bin === "string") return join(REPO_ROOT, "sdk", pkg.bin);
+    if (typeof pkg.bin === "string") return join(sdkDir, pkg.bin);
     if (pkg.bin !== null && typeof pkg.bin === "object") {
       for (const value of Object.values(pkg.bin as Record<string, unknown>)) {
-        if (typeof value === "string") return join(REPO_ROOT, "sdk", value);
+        if (typeof value === "string") return join(sdkDir, value);
       }
     }
   } catch {
@@ -444,7 +540,9 @@ async function main(): Promise<number> {
   diagnostics.push(...checkLocalManifests(entries));
   diagnostics.push(...checkSubmoduleMapping(entries));
   if (skipNetwork) {
-    console.log("notice: repository existence checks skipped (--skip-network)");
+    console.log(
+      `notice: repository existence checks skipped for ${countNetworkRepositories(entries)} entr(ies) (--skip-network)`,
+    );
     console.log(
       "notice: submodule pin reachability checks skipped (--skip-network)",
     );

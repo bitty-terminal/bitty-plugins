@@ -78,6 +78,28 @@ unmerged commit; a pointer bump is a reviewed change. The policy owns the
 registration checklist, the bundled-split order of operations, and the
 maintenance rules.
 
+### Local checks, SDK override, and offline tiering
+
+`just registry-validate` keeps the official-manifest gate real instead of
+silently skipping it:
+
+- For each official entry the validator reads `plugins/<name>/bitty-plugin.toml`
+  when the submodule is initialized, otherwise the workspace-relative sibling
+  repository, then compares the manifest `plugin.id`, name, and license with the
+  registry entry and runs the SDK's authoritative manifest lint.
+- The SDK checkout is resolved in order: `BITTY_PLUGIN_SDK_DIR`, the in-repo
+  `sdk/` submodule, then the workspace-relative `bitty-plugin-sdk` sibling
+  (its name is derived from `.gitmodules`, never hardcoded). No host path is
+  baked into the tooling.
+- When no local checkout resolves for an official entry, the skipped entries
+  are reported as one aggregate warning with the count, so an unverified entry
+  is visible in CI rather than passing as an unchecked green.
+
+Repository existence checks are tiered: `404`/`410` are hard errors, other HTTP
+responses warn, and a network error skips only the entries that had not been
+checked yet while reporting the skipped count. `--skip-network` (or
+`REGISTRY_SKIP_NETWORK=1`) prints how many repository checks it skipped.
+
 ## Registry model
 
 Registry entries are deliberately minimal. A source file declares only
@@ -127,6 +149,17 @@ sdk = "^0.1" # optional plugin API range (manifest `compat.plugin-api`)
   kinds without a schema break.
 - The generated index is sorted by `id`, generated deterministically, and
   idempotent: `generated_at` only changes when the plugin payload changes.
+- `license` is an SPDX expression validated fail-closed. A license identifier
+  must be in the bundled common list or use a `LicenseRef-<name>` custom
+  reference, and an exception after `WITH` must be one of the bundled common
+  exceptions (`Classpath-exception-2.0`, `GCC-exception-3.1`,
+  `LLVM-exception`); any other identifier is a hard error that blocks index
+  generation, so an unverified license never reaches the artifact. Extend the
+  bundled lists in a reviewed change when a new license or exception is
+  accepted.
+- `tags` and `categories` are lowercase slugs deduplicated case-insensitively.
+  Reusing one `repository` URL under two different `id`s is reported as a
+  warning so mirrors and forks stay distinguishable.
 
 ### Version range validation
 
@@ -243,9 +276,11 @@ just hooks-install      # install lefthook Git hooks (opt-in per checkout)
 ```
 
 Use `--skip-network` with `just registry-validate --skip-network` (or
-`REGISTRY_SKIP_NETWORK=1`) for hermetic runs; with no network the validator
-prints a notice and continues with static checks only (repository existence
-and pin reachability are skipped, submodule mapping still runs).
+`REGISTRY_SKIP_NETWORK=1`) for hermetic runs; the validator reports how many
+repository existence checks were skipped and continues with the static checks
+(submodule mapping and manifest consistency still run). Without the flag, a
+network error skips only the entries it had not checked yet and reports the
+count; `404`/`410` remain hard errors.
 
 ## Submodules
 

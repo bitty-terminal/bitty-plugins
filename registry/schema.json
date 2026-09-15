@@ -99,7 +99,7 @@
     },
     "license": {
       "type": "string",
-      "description": "SPDX expression. Syntax is validated strictly; unrecognized SPDX identifiers produce warnings, not errors.",
+      "description": "SPDX expression validated fail-closed: a license identifier must be a listed common identifier or a `LicenseRef-<name>` custom reference, and an exception after `WITH` must be a listed common exception identifier; an unknown identifier is an error that blocks index generation.",
       "maxLength": 100
     },
     "compatibility": {
