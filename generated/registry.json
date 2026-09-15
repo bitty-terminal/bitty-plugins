@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-15T05:40:59Z",
+  "generated_at": "2026-09-15T09:31:42Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -29,6 +29,37 @@
         "description": "Privacy-first local activity timeline plugin for the Bitty terminal.",
         "license": "MIT",
         "fetched_at": "2026-09-15T05:41:03Z"
+      }
+    },
+    {
+      "id": "bitty-terminal.file-manager",
+      "name": "File Manager",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/file-manager",
+      "official": true,
+      "author": "bitty-terminal",
+      "description": "Tiled Panel file listing, navigation, and preview with fs.read + optional fs.write, bounded 8KiB/32/64 PR-1..12.",
+      "tags": [
+        "file-manager",
+        "files",
+        "navigation",
+        "panel",
+        "preview"
+      ],
+      "categories": [
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.1,<1.0",
+        "sdk": "^0.1"
+      },
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/file-manager/HEAD/bitty-plugin.toml",
+        "version": "0.1.0",
+        "description": "Tiled Panel file manager with fs.read + optional fs.write, bounded 8KiB/32/64 PR-1..12",
+        "license": "MIT",
+        "fetched_at": "2026-09-15T09:31:47Z"
       }
     },
     {
