@@ -17,3 +17,6 @@
 [submodule "plugins/statusline"]
 	path = plugins/statusline
 	url = https://github.com/bitty-terminal/statusline
+[submodule "plugins/git-panel"]
+	path = plugins/git-panel
+	url = https://github.com/bitty-terminal/git-panel.git
