@@ -66,7 +66,10 @@ and this project adheres to
   generic unknown-key error. Registry dependencies remain unsupported in this
   phase (no version intersection, cycle detection, or index field); plugin
   dependencies stay in the plugin manifest `bitty-plugin.toml` `[dependencies]`
-  table. See the README "Dependency model" section.
+  table, which the accepted Plugin Platform RFC defines and the SDK manifest
+  tooling bounds. The manifest side is deliberately not rejected: CarryCtx
+  `DEC-0009` records the registry↔manifest asymmetry with accepted-corpus
+  evidence (CTX-0015). See the README "Dependency model" section.
 
 - The store frontend now re-validates entry `id` and `repository` formats at
   load time, restricts external links to `https:`, and produces no install
