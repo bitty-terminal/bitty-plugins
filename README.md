@@ -242,17 +242,47 @@ a runtime comparison.
 
 ### Dependency model
 
-Registry entries **must not** declare dependencies. Plugin dependencies remain
-declared only in a plugin's `bitty-plugin.toml` `[dependencies]` table, which
-the SDK manifest tooling bounds and checks for self-dependencies. The registry
-has no cross-plugin dependency model yet: no `dependencies` field, no version
+The manifest and registry layers carry dependencies differently, and that
+asymmetry is deliberate (CarryCtx `DEC-0007`, `DEC-0009`).
+
+**Plugin manifests** (`bitty-plugin.toml`) declare plugin dependencies in an
+optional `[dependencies]` table that maps a plugin ID to a version range, for
+example `"xuepoo.gitcore" = ">=2.0"`. This is part of the accepted manifest
+schema in the [Plugin Platform
+RFC](https://github.com/bitty-terminal/bitty-plugins-docs/blob/main/specifications/plugin-platform-rfc.md)
+(accepted 2026-08-27): the table is hard-limited to 8 entries, and the SDK
+manifest tooling bounds it (invalid identifiers, self-dependencies, and
+malformed version ranges are rejected). Graph resolution — cycles, constraint
+intersection, one version per ID — is the accepted resolver contract in the
+[package follow-up
+RFC](https://github.com/bitty-terminal/bitty-plugins-docs/blob/main/specifications/package-followup-rfc.md);
+it is not implemented in this repository.
+
+**Registry entries** (`registry/**/*.toml`) **must not** declare dependencies.
+The registry is a discovery index: it has no `dependencies` field, no version
 intersection, no cycle detection, and no index representation, so an installer
 could not resolve a dependency declared there. `validate-registry` reports an
 explicit `dependencies is not supported in registry entries` error for an entry
-that declares the table, instead of a generic unknown-key error. Introducing a
-registry dependency model, and rejecting `[dependencies]` in the paired
-manifest validators, requires a separately authorized and reviewed change in
-this repository and the plugin/SDK repositories.
+that declares the table, instead of a generic unknown-key error, and points the
+author at the manifest `[dependencies]` table. The registry-side rejection is
+therefore not a manifest-side ban: manifest validators accept and validate the
+table, and the accepted signed package index mirrors manifest dependency edges.
+
+Two accepted-corpus items stay open and fail closed in this repository:
+
+- The closed resolver constraint grammar requires strict `X.Y.Z` comparators,
+  while the registry grammar accepts the partial comparator versions that every
+  current entry and manifest uses; see "Version range validation" and CarryCtx
+  `DEC-0008` (CTX-0016).
+- The prerelease opt-in flag (`prerelease = true` in a manifest dependency
+  entry, package follow-up RFC "Prerelease policy") has no accepted TOML
+  syntax: the accepted manifest schema shows the string form only, and current
+  validators reject table-form dependency entries. Only the defined form is
+  accepted until the owning corpus specifies the flag syntax.
+
+Introducing a registry dependency field requires a separately authorized and
+reviewed change in this repository; the manifest side is already defined by the
+accepted corpus.
 
 ### Source-of-truth pipeline
 

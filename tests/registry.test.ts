@@ -466,6 +466,47 @@ describe("registry dependency model (R9)", () => {
       false,
     );
   });
+
+  test("points registry authors at the manifest instead of an unknown key", () => {
+    const messages = validateRawKeys(
+      {
+        id: "sample.plugin",
+        name: "Sample",
+        repository: "https://github.com/example/sample-plugin",
+        dependencies: { "other.plugin": "^1.0" },
+      },
+      "registry/official/example-sample.toml",
+    ).map((diagnostic) => diagnostic.message);
+    const pointer = messages.find((message) =>
+      message.includes("not supported in registry entries"),
+    );
+    expect(pointer).toBeDefined();
+    expect(pointer).toContain("bitty-plugin.toml");
+    expect(pointer).toContain("[dependencies]");
+    expect(messages.some((message) => message.includes("unknown key"))).toBe(
+      false,
+    );
+  });
+
+  test("rejects an empty dependencies table as unsupported too", () => {
+    const messages = validateRawKeys(
+      {
+        id: "sample.plugin",
+        name: "Sample",
+        repository: "https://github.com/example/sample-plugin",
+        dependencies: {},
+      },
+      "registry/community/example-sample.toml",
+    ).map((diagnostic) => diagnostic.message);
+    expect(
+      messages.some((message) =>
+        message.includes("not supported in registry entries"),
+      ),
+    ).toBe(true);
+    expect(messages.some((message) => message.includes("unknown key"))).toBe(
+      false,
+    );
+  });
 });
 
 describe("registry-wide validation", () => {
@@ -1321,6 +1362,28 @@ describe("sync metadata identity binding (R2)", () => {
     );
     expect(result.metadata).toBeNull();
     expect(result.notice).toBeDefined();
+  });
+
+  test("keeps metadata when the manifest declares [dependencies] (DEC-0009)", () => {
+    const withDependencies = [
+      "[plugin]",
+      'id = "sample.plugin"',
+      'version = "1.2.3"',
+      "",
+      "[dependencies]",
+      '"other.plugin" = "^1.0"',
+      "",
+    ].join("\n");
+    const result = manifestMetadata(
+      withDependencies,
+      "https://example.com/bitty-plugin.toml",
+      "sample.plugin",
+      undefined,
+      "2026-01-01T00:00:00Z",
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.notice).toBeUndefined();
+    expect(result.metadata?.version).toBe("1.2.3");
   });
 });
 
