@@ -215,6 +215,35 @@ describe("semver range syntax", () => {
       expect(resolverRangeProblem(range)).toBeNull();
     }
   });
+
+  test("rejects resolver-illegal identifier characters (CTX-0017, PX-0053)", () => {
+    for (const range of ["1.0.0-alpha_1", "1.2.3+build_1"]) {
+      const problem = resolverRangeProblem(range);
+      expect(problem).not.toBeNull();
+      expect(problem).toContain("invalid character");
+    }
+  });
+
+  test("checks the 64-byte version budget on normalized shorthand text (CTX-0017, PX-0053)", () => {
+    const comparatorAtBudget = `1.2.3-${"a".repeat(58)}`;
+    const comparatorOverBudget = `1.2.3-${"a".repeat(59)}`;
+    const caretAtBudget = `^1.2-${"a".repeat(58)}`;
+    const caretOverBudget = `^1.2-${"a".repeat(59)}`;
+    const tildeAtBudget = `~1.2-${"a".repeat(58)}`;
+    const tildeOverBudget = `~1.2-${"a".repeat(60)}`;
+    for (const range of [comparatorAtBudget, caretAtBudget, tildeAtBudget]) {
+      expect(resolverRangeProblem(range)).toBeNull();
+    }
+    for (const range of [
+      comparatorOverBudget,
+      caretOverBudget,
+      tildeOverBudget,
+    ]) {
+      const problem = resolverRangeProblem(range);
+      expect(problem).not.toBeNull();
+      expect(problem).toContain("64-byte");
+    }
+  });
 });
 
 describe("SPDX license validation", () => {
