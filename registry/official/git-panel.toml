@@ -4,10 +4,10 @@
 # downloads) is intentionally absent; `just registry-sync` mirrors the plugin's
 # bitty-plugin.toml into the optional `metadata` object of the generated index.
 #
-# READY TO LAND (not landed): copy this file to
-# `registry/official/git-panel.toml` in the bitty-plugins repository AFTER
-# the `bitty-terminal/git-panel` repository exists (commander approval
-# required; this task creates no repositories and touches no registry).
+# Integrity (Phase 1, advisory): `manifest_hash` is the sha256 digest of the
+# owning repository's `bitty-plugin.toml` at the pinned submodule revision
+# recorded by `git ls-tree HEAD plugins/git-panel`. Refresh it when the pin
+# moves (see README "Registry model" refresh procedure).
 
 id = "bitty-terminal.git-panel"
 name = "Git Panel"
@@ -18,6 +18,7 @@ description = "Tiled Panel git branch/status/diff/log via process.spawn:git allo
 tags = ["git", "version-control", "panel", "diff", "log"]
 categories = ["productivity", "developer-tools"]
 license = "MIT"
+manifest_hash = "sha256:2c256e20fe1bba353cd3e0eedd4c2d4225bf0564c7682d03ee8eae2307fb34aa"
 
 [compatibility]
 bitty = ">=0.1,<1.0"
