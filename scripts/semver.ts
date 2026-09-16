@@ -64,6 +64,21 @@ function byteLength(value: string): number {
 }
 
 /**
+ * Pad a caret/tilde shorthand core to `X.Y.Z`, mirroring the resolver's
+ * `normalize_version_str` (`requirement.rs`). The resolver applies its
+ * 64-byte version budget to the normalized text it parses, so `^1.2-<long>`
+ * is measured as `1.2.0-<long>`, not as the raw shorthand.
+ */
+function normalizeShorthandVersion(version: string): string {
+  const separatorAt = version.search(/[-+]/);
+  const core = separatorAt === -1 ? version : version.slice(0, separatorAt);
+  const suffix = separatorAt === -1 ? "" : version.slice(separatorAt);
+  const segments = core.split(".");
+  while (segments.length < 3) segments.push("0");
+  return segments.join(".") + suffix;
+}
+
+/**
  * Return null when `range` is structurally valid, otherwise a human-readable
  * description of the first structural problem found: an empty range, an
  * overlong range, wildcard `*`, `||` disjunction, an empty `,` comparator, or
@@ -155,7 +170,8 @@ function resolverVersionProblem(
   version: string,
   shorthand: boolean,
 ): string | null {
-  if (byteLength(version) > MAX_RESOLVER_VERSION_BYTES) {
+  const sized = shorthand ? normalizeShorthandVersion(version) : version;
+  if (byteLength(sized) > MAX_RESOLVER_VERSION_BYTES) {
     return `version exceeds the resolver's ${MAX_RESOLVER_VERSION_BYTES}-byte budget`;
   }
   const pattern = shorthand
@@ -198,7 +214,7 @@ function resolverIdentifierProblem(
     if (identifier.length === 0) {
       return `${label} identifier must not be empty`;
     }
-    if (!/^[0-9A-Za-z_-]+$/.test(identifier)) {
+    if (!/^[0-9A-Za-z-]+$/.test(identifier)) {
       return `${label} identifier "${identifier}" contains an invalid character`;
     }
     if (
