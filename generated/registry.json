@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-15T21:20:46Z",
+  "generated_at": "2026-09-16T18:10:36Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -156,6 +156,30 @@
         "description": "Cwd, mode, Git and task presentation via status-component composition",
         "license": "MIT",
         "fetched_at": "2026-09-15T05:41:04Z"
+      }
+    },
+    {
+      "id": "bitty-terminal.wheel",
+      "name": "Wheel",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/wheel",
+      "official": true,
+      "signature_status": "unsigned",
+      "author": "bitty-terminal",
+      "description": "The official Agent Harness plugin for the Bitty terminal (mascot: Bittie the hamster). Pre-implementation scaffold.",
+      "tags": [
+        "agent",
+        "agent-harness",
+        "ai",
+        "harness"
+      ],
+      "categories": [
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.1,<1.0",
+        "sdk": "^0.1"
       }
     }
   ]
