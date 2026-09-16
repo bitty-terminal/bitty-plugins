@@ -52,6 +52,15 @@ and this project adheres to
 
 ### Changed
 
+- `[compatibility]` range validation now rejects wildcard `*`, `||`
+  disjunction, and ranges over 128 bytes — the classes the host resolver and
+  the SDK mock host both reject — and emits a warning naming the range for
+  accepted ranges the closed `bitty-package` comparator grammar cannot parse
+  (partial comparator versions such as `>=0.5,<1.0`). Warnings do not fail
+  validation, so the existing official entries and manifests stay publishable
+  while the alignment decision is pending. See the README "Version range
+  validation" section and CarryCtx `DEC-0008` (CTX-0016).
+
 - A registry entry that declares a `dependencies` table now fails validation
   with an explicit "not supported in registry entries" error instead of a
   generic unknown-key error. Registry dependencies remain unsupported in this

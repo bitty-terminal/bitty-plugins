@@ -8,7 +8,11 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { VERSION_RANGE_SYNTAX, versionRangeProblem } from "./semver.ts";
+import {
+  VERSION_RANGE_SYNTAX,
+  resolverRangeProblem,
+  versionRangeProblem,
+} from "./semver.ts";
 
 export const REPO_ROOT = resolve(import.meta.dir, "..");
 export const REGISTRY_DIR = "registry";
@@ -411,6 +415,15 @@ export function validateEntry(
         error(
           `\`compatibility.${key}\` is not a valid semver range: ${problem} (${VERSION_RANGE_SYNTAX})`,
         );
+        continue;
+      }
+      const resolverProblem = resolverRangeProblem(range);
+      if (resolverProblem !== null) {
+        diagnostics.push({
+          severity: "warning",
+          file,
+          message: `\`compatibility.${key}\` range "${range}" is not accepted by the closed host resolver grammar: ${resolverProblem}; accepted for now, full alignment is pending (CTX-0016 / DEC-0008)`,
+        });
       }
     }
   }
