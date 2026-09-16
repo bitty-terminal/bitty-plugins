@@ -1,110 +1,93 @@
-# Contributing
+# Contributing to bitty-plugins
 
-Thanks for considering a contribution to Bitty Plugins. This repository is the
-official plugin directory, registry, and store frontend for the Bitty
-ecosystem. Read [AGENTS.md](AGENTS.md) for repository authority, registry
-contracts, and agent workflow rules before making changes.
+This guide is for contributors to the `bitty-plugins` repository. The
+repository is pre-implementation: the registry toolchain and the static store
+prototype exist, while the `bitty plugin add <id>` CLI flow is a design
+proposal, not shipped behavior.
 
-## What belongs here
+## Repository ground rules
 
-- **Community plugin entries** — one registry file per plugin under
-  `registry/community/<author>-<slug>.toml`. This is an awesome-list model:
-  the plugin code stays in your own repository; this repository stores only
-  metadata.
-- **Official plugin changes** — maintained by `bitty-terminal`. Official
-  plugins live in `plugins/` as pinned submodules; add or update them through
-  a reviewed pointer bump, not a community entry.
-- **Registry tooling and storefront fixes** — see the development loop below.
+- Read [AGENTS.md](AGENTS.md) before making any change. It defines authority,
+  scope boundaries, CarryCtx workflow, toolchain policy, and the security and
+  privacy constraints that override convenience.
+- Canonical plugin architecture, manifest, security, packaging, and
+  compatibility contracts live in `bitty-plugins-docs` (mounted at `docs/`);
+  shared governance lives in `bitty-docs`. This repository must not invent
+  manifest fields, capability semantics, or release policy independently.
+- Community plugin entries under `registry/community/<author>-<slug>.toml` are
+  metadata only. Community plugins are never submodules and never gain install,
+  execution, or clone authority; official plugins live in `plugins/` as pinned
+  submodules updated through reviewed pointer bumps.
+- Never commit, push, publish packages, or mutate remote state without
+  explicit authorization from the owning task.
 
-Community plugins are **never** added as submodules and never granted install
-or execution authority by merging an entry.
+## Prerequisites
 
-## Adding a community plugin entry
+Toolchain expectations (dependency versions are pinned in
+[package.json](package.json) and locked in `bun.lock`; never invoke formatters
+or linters by name):
 
-1. Fork this repository and create a branch.
-2. Add `registry/community/<author>-<slug>.toml`, where `<author>` is your
-   lowercase handle and `<slug>` identifies the plugin. One file per plugin.
-3. Keep the entry minimal:
+- `just` — command runner owning all quality-gate invocations.
+- `bun` / `bun run <bin>` — JavaScript execution and package management; the
+  justfile invokes installed tools as `bun run <bin>`. Never use `npm`, `npx`,
+  or `yarn` in any Bitty repository.
+- `markdownlint-cli2`, `prettier`, `commitlint`, `lefthook` — pinned in the
+  justfile and run through `bunx --bun`; the committed dev dependencies are
+  materialized by `bun install`.
 
-   ```toml
-   id = "yourhandle.your-plugin"
-   name = "Your Plugin"
-   repository = "https://github.com/you/your-plugin"
-   author = "yourhandle"
-   description = "One sentence, no marketing claims."
-   tags = ["utility"]
-   categories = ["utility"]
-   license = "MIT"
+## Development setup
 
-   [compatibility]
-   bitty = ">=0.5"
-   sdk = "^0.1"
-   ```
+1. Enter this repository before running Git, CarryCtx, or toolchain commands.
+2. Install pinned development dependencies: `bun install`.
+3. Enable Git hooks (optional): `just hooks-install`.
+4. Run all quality gates: `just check` (Prettier format check, Markdown lint,
+   type check, tests, registry validation, generated-index freshness, and the
+   static store build). CI runs the same aggregate target.
+5. Record scoped work in CarryCtx (task, session, progress, checkpoint) and
+   stop at review; independent review is required for acceptance.
 
-   Do not include version numbers, stars, dates, or download counts. That
-   metadata is derived from your `bitty-plugin.toml` by
-   `just registry-sync` and must not be duplicated by hand.
-
-4. Run the gates locally (requires `bun` and `just`):
-
-   ```sh
-   just registry-validate
-   just registry-generate
-   just check
-   ```
-
-5. Open a pull request using the repository template. CI validates the entry,
-   regenerates `generated/registry.json`, and fails if the generated file is
-   stale.
-6. A maintainer reviews the entry, the repository URL, and the plugin's
-   manifest before merge. Entries may be declined for name collisions,
-   incomplete metadata, unreachable repositories, or policy conflicts.
-
-## Development loop
-
-All quality gates run through the repository justfile; never invoke formatters,
-linters, or scripts directly by name, and never use `npm`, `npx`, or `yarn`:
-
-```text
-just check              # full read-only gate set
-just fmt                # format files with Prettier (writes)
-just lint               # Markdown lint
-just type-check         # TypeScript (scripts/ and app/)
-just test               # registry/tooling tests
-just registry-validate  # validate registry entries
-just registry-generate  # rebuild generated/registry.json
-just app-build          # build the static store
-```
-
-Use `just registry-validate --skip-network` for hermetic offline runs. Git
-hooks are wired by [lefthook.yml](lefthook.yml); install them once with
-`just hooks-install`. Commits are message-linted, and staged Markdown files are
-checked before each commit.
-
-## Commit messages
-
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/) and
-are validated against [commitlint.config.ts](commitlint.config.ts):
-
-```text
-feat(registry): add community entry for xuepoo-markdown
-fix(app): escape tag text in plugin detail view
-docs(readme): clarify official versus community boundary
-chore(ci): pin actionlint in workflow checks
-```
+Use `just registry-validate --skip-network` for hermetic offline runs, and run
+`just registry-generate` after registry edits so `generated/registry.json`
+stays current.
 
 ## Delivery lifecycle
 
-Repository work follows the Bitty lifecycle: GitHub Issue, CarryCtx task with
-team/dependencies/scopes, branch and isolated worktree, focused commits, pull
-request with evidence, independent review plus required CI, merge,
-documentation synchronization, and task closure. Community pull requests from
-outside contributors do not require a CarryCtx task; maintainers link them to
-the owning tracking work.
+Changes follow Issue -> Branch -> Commit -> Pull Request -> Review -> Merge,
+where independent review plus required CI must pass before merge. Every pull
+request states its Issue and CarryCtx task links, impact areas, security and
+privacy impact, reproducible gate evidence, and documentation synchronization
+status. Labels (`feat`/`fix`/`docs`/`chore`, `P0`/`P1`/`P2`, `area:*`) and
+milestone `v0.1.0` are kept in sync. Community pull requests from outside
+contributors do not require a CarryCtx task; maintainers link them to the
+owning tracking work.
 
-## Reporting problems
+## Contributor branches
 
-- Security issues: follow [SECURITY.md](SECURITY.md); never open a public issue
-  for a vulnerability.
-- Registry or storefront bugs: use the bug report template.
-- Feature requests: use the feature request template.
+Branches are managed with CarryCtx. Official branches use
+`ctx-XXXX/<type>-<slug>`, where `XXXX` is the owning CarryCtx task number,
+`<type>` is one of `feat|fix|chore|docs`, and the slug is short kebab-case;
+commander housekeeping branches may use `cmd/<slug>`. External contributors
+must use a distinguishable prefix, for example `<github-handle>/<type>-<slug>`.
+
+## Capabilities and privacy
+
+Manifest capability requests are deny by default and must stay minimal; this
+repository indexes metadata and a registry entry never grants capability,
+install, or execution authority. Registry entries, fetched manifests, and
+generated artifacts are untrusted input: validate before use, never execute
+registry content, and never add install scripts, secrets, or ambient authority
+as a side effect of an unrelated change.
+
+## Workflow snapshots
+
+The engineering workflow snapshot lives in this repository on the branch
+`refs/heads/carryctx-snapshots`. Merges run `just workflow-publish` (dry run:
+`just workflow-publish-dry`) as part of the commander closeout; snapshots are
+redacted publication artifacts and are never merged back. Fresh clones restore
+with `just workflow-import` (`just workflow-import-dry`).
+
+## Reporting
+
+Report bugs and feature requests through the GitHub issue templates. Report
+security issues privately per [SECURITY.md](SECURITY.md); never open a public
+issue for a vulnerability.

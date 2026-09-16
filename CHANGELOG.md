@@ -52,6 +52,13 @@ and this project adheres to
 
 ### Changed
 
+- Repository metadata baseline: [CONTRIBUTING.md](CONTRIBUTING.md) documents the
+  delivery lifecycle and the contributor-branch convention
+  (`ctx-XXXX/<type>-<slug>`; external contributors use
+  `<handle>/<type>-<slug>`), [SECURITY.md](SECURITY.md) follows the canonical
+  reporting structure, `.gitattributes` normalizes text files to LF, and the
+  `carryctx` devDependency is bumped to 0.11.5 with a regenerated `bun.lock`.
+
 - `[compatibility]` range validation now rejects wildcard `*`, `||`
   disjunction, and ranges over 128 bytes — the classes the host resolver and
   the SDK mock host both reject — and emits a warning naming the range for
