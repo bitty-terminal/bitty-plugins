@@ -43,6 +43,7 @@ import {
 } from "../app/src/registry.ts";
 import {
   isValidVersionRange,
+  resolverRangeProblem,
   versionRangeProblem,
   VERSION_RANGE_SYNTAX,
 } from "../scripts/semver.ts";
@@ -68,30 +69,40 @@ function errorsOf(entry: RegistryEntry): string[] {
     .map((diagnostic) => diagnostic.message);
 }
 
+function warningsOf(entry: RegistryEntry): string[] {
+  return validateEntry(entry, "registry/community/example-sample.toml")
+    .filter((diagnostic) => diagnostic.severity === "warning")
+    .map((diagnostic) => diagnostic.message);
+}
+
 describe("semver range syntax", () => {
-  test("accepts comparators, caret, tilde, star, and partial versions", () => {
+  test("accepts comparators, caret, tilde, and partial versions", () => {
     for (const range of [
       ">=0.5,<1.0",
       "^0.1",
       "~1.2.3",
-      "*",
       "1.2.3",
       ">= 0.5",
-      "^0.1 || ^0.2",
       "1.0.0-rc.1",
     ]) {
       expect(isValidVersionRange(range)).toBe(true);
     }
   });
 
-  test("rejects malformed ranges", () => {
+  test("rejects wildcard, disjunction, and malformed ranges (CTX-0016)", () => {
     for (const range of [
       "",
       "latest",
+      "*",
+      "||",
+      "|||",
+      "^0.1 ||",
+      "^0.1 || ^0.2",
       ">=0.5 ||",
       "1.2.3 - 2.0.0",
       "abc",
       ">=0.5,,<1.0",
+      "a".repeat(129),
     ]) {
       expect(isValidVersionRange(range)).toBe(false);
     }
@@ -100,9 +111,6 @@ describe("semver range syntax", () => {
   test("rejects comparator-structure and empty-branch nonsense (R8/R27)", () => {
     for (const range of [
       ">>>",
-      "|||",
-      "||",
-      "^0.1 ||",
       "|| ^0.1",
       "^0.1 || || ^0.2",
       ">=1.0,",
@@ -120,25 +128,92 @@ describe("semver range syntax", () => {
       ">=0.5,<1.0",
       "^0.1",
       "~1.2.3",
-      "*",
       "1.2.3",
       ">= 0.5",
-      "^0.1 || ^0.2",
       "1.0.0-rc.1",
       "0.1",
     ]) {
       expect(isValidVersionRange(range)).toBe(true);
     }
     expect(VERSION_RANGE_SYNTAX).toContain("comma-separated comparators");
+    expect(VERSION_RANGE_SYNTAX).toContain("not accepted");
   });
 
   test("reports the structural problem for rejected ranges", () => {
     expect(versionRangeProblem(">>>")).toContain("not a comparator");
-    expect(versionRangeProblem("|||")).toContain("empty alternative");
-    expect(versionRangeProblem("^0.1 ||")).toContain("empty alternative");
+    expect(versionRangeProblem("*")).toContain("wildcard");
+    expect(versionRangeProblem("|||")).toContain("disjunction");
+    expect(versionRangeProblem("^0.1 ||")).toContain("disjunction");
     expect(versionRangeProblem(">=1.0,,<2.0")).toContain("empty comparator");
     expect(versionRangeProblem("")).toContain("empty");
+    expect(versionRangeProblem("a".repeat(129))).toContain("128");
     expect(versionRangeProblem(">=0.5,<1.0")).toBeNull();
+  });
+
+  test("models the source-confirmed host resolver grammar (CTX-0016)", () => {
+    const rejected: Array<[string, string]> = [
+      [">=0.5,<1.0", "strict X.Y.Z"],
+      [">=2.30", "strict X.Y.Z"],
+      ["0.1", "strict X.Y.Z"],
+      [">=0.5", "strict X.Y.Z"],
+      ["<1.0", "strict X.Y.Z"],
+      ["^1.2.3, <2.0.0", "must not combine"],
+      ["01.2.3", "leading zero"],
+    ];
+    for (const [range, reason] of rejected) {
+      const problem = resolverRangeProblem(range);
+      expect(problem).not.toBeNull();
+      expect(problem).toContain(reason);
+    }
+    for (const range of [
+      "^0.1",
+      "~1.2.3",
+      "1.2.3",
+      "1.2.3+build",
+      "^1",
+      "~1",
+      ">=0.1.0",
+      "1.0.0-rc.1",
+    ]) {
+      expect(resolverRangeProblem(range)).toBeNull();
+    }
+  });
+
+  test("rejects resolver identifier and budget violations (CTX-0016 fix-forward)", () => {
+    const overlongVersion = `1.0.0-${"a".repeat(60)}`;
+    const overlongCaretVersion = `^1.0.0-${"a".repeat(60)}`;
+    const sixteenComparators = Array.from({ length: 16 }, () => "1.0.0").join(
+      ",",
+    );
+    const seventeenComparators = Array.from({ length: 17 }, () => "1.0.0").join(
+      ",",
+    );
+    const rejected: Array<[string, string]> = [
+      ["1.0.0-alpha.01", "leading zero"],
+      ["1.0.0-01", "leading zero"],
+      ["^1-01", "leading zero"],
+      ["1.0.0-alpha..1", "must not be empty"],
+      ["1.0.0-alpha.", "must not be empty"],
+      [overlongVersion, "64-byte"],
+      [overlongCaretVersion, "64-byte"],
+      ["4294967296.0.0", "u32"],
+      ["^4294967296", "u32"],
+      ["^1.99999999999", "u32"],
+      [seventeenComparators, "16 comparators"],
+    ];
+    for (const [range, reason] of rejected) {
+      const problem = resolverRangeProblem(range);
+      expect(problem).not.toBeNull();
+      expect(problem).toContain(reason);
+    }
+    for (const range of [
+      "4294967295.0.0",
+      "^4294967295",
+      "1.0.0-0",
+      sixteenComparators,
+    ]) {
+      expect(resolverRangeProblem(range)).toBeNull();
+    }
   });
 });
 
@@ -304,9 +379,22 @@ describe("compatibility naming and version ranges (R8/R27)", () => {
     expect(
       errorsOf({
         ...baseEntry,
-        compatibility: { bitty: ">=0.5,<1.0", sdk: "^0.1 || ^0.2" },
+        compatibility: { bitty: ">=0.5,<1.0", sdk: "^0.1" },
       }),
     ).toEqual([]);
+  });
+
+  test("rejects wildcard and disjunction in compatibility ranges (CTX-0016)", () => {
+    for (const range of ["*", "^0.1 || ^0.2"]) {
+      const messages = errorsOf({
+        ...baseEntry,
+        compatibility: { sdk: range },
+      });
+      expect(messages.length).toBeGreaterThan(0);
+      expect(messages.some((message) => message.includes("semver range"))).toBe(
+        true,
+      );
+    }
   });
 
   test("rejects the manifest-side `plugin-api` key in a registry entry", () => {
@@ -324,6 +412,34 @@ describe("compatibility naming and version ranges (R8/R27)", () => {
         message.includes("unknown key `compatibility.plugin-api`"),
       ),
     ).toBe(true);
+  });
+});
+
+describe("resolver alignment warnings (CTX-0016)", () => {
+  const compatibilityWarnings = (entry: RegistryEntry): string[] =>
+    warningsOf(entry).filter((message) => message.includes("compatibility."));
+
+  const partialComparatorEntry: RegistryEntry = {
+    ...baseEntry,
+    compatibility: { bitty: ">=0.5,<1.0", sdk: "^0.1" },
+  };
+
+  test("warns, without failing, on ranges the host resolver cannot parse", () => {
+    const warnings = compatibilityWarnings(partialComparatorEntry);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain(">=0.5,<1.0");
+    expect(warnings[0]).toContain("strict X.Y.Z");
+    expect(warnings[0]).toContain("CTX-0016");
+    expect(errorsOf(partialComparatorEntry)).toEqual([]);
+  });
+
+  test("does not warn on resolver-parsable ranges", () => {
+    expect(
+      compatibilityWarnings({
+        ...baseEntry,
+        compatibility: { bitty: ">=0.1.0,<1.0.0", sdk: "~0.1" },
+      }),
+    ).toEqual([]);
   });
 });
 

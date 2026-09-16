@@ -168,9 +168,59 @@ Registry `[compatibility]` ranges are validated by the structural parser in
 registry tooling. The accepted grammar is documented once by
 `VERSION_RANGE_SYNTAX` in that file and reused verbatim in diagnostics, so the
 grammar cannot be restated inconsistently. The parser rejects malformed
-comparator shapes (for example `>>>`), empty `,` or `||` branches, and a
-dangling `||`; hyphen ranges and build metadata are not accepted. Nonsense
-therefore fails at validation instead of reaching the generated index.
+comparator shapes (for example `>>>`), empty `,` branches, wildcard `*`,
+`||` disjunction, ranges over the 128-byte budget shared with the host
+resolver, hyphen ranges, and build metadata. Nonsense therefore fails at
+validation instead of reaching the generated index.
+
+#### Empirical grammar comparison (CTX-0016)
+
+The registry grammar was compared against the accepted closed resolver grammar
+(`bitty` `crates/bitty-package/src/requirement.rs`, package-followup RFC
+§Constraint grammar; probed from a scratch build, no `bitty` change) and the
+SDK mock host (`bitty-plugin-sdk` `src/version-range.ts`). The registry column
+shows the tightened grammar; before CTX-0016 the registry differed only for
+`*`, `||`, and overlong ranges, which it accepted:
+
+| Range            | Registry | Host resolver                       | SDK mock host     |
+| ---------------- | -------- | ----------------------------------- | ----------------- |
+| `>=0.5,<1.0`     | accept   | reject (partial comparator version) | accept            |
+| `^0.1`           | accept   | accept (`>=0.1.0 <0.2.0`)           | accept (`<1.0.0`) |
+| `~1.2.3`         | accept   | accept (`>=1.2.3 <1.3.0`)           | accept            |
+| `*`              | reject   | reject                              | reject            |
+| `^0.1 \|\| ^0.2` | reject   | reject                              | reject            |
+| `1.2.3`          | accept   | accept (`=1.2.3`)                   | accept            |
+| `>=2.30`         | accept   | reject (partial comparator version) | accept            |
+| `1.2.3+build`    | reject   | accept                              | reject            |
+| `0.1`            | accept   | reject (partial comparator version) | accept            |
+
+Observed divergences: the resolver rejects the partial-version shorthand
+(`>=0.5`, `>=2.30`, `0.1`) that the registry and the SDK mock host accept and
+that every existing entry and manifest uses; the registry rejects build
+metadata the resolver accepts; and caret semantics differ for zero-major
+versions (resolver `^0.1` resolves to `<0.2.0`, SDK mock host `^0.1` matches
+up to `<1.0.0`).
+
+#### Decision and pending alignment (DEC-0008)
+
+Implemented fail-closed tightening: wildcard `*`, `||` disjunction, and ranges
+over 128 bytes are rejected, because the resolver and the SDK mock host both
+reject them and no entry, manifest, or fixture uses them. Build metadata stays
+rejected; that is stricter than the resolver and already fail-closed.
+
+Deferred: rejecting partial comparator versions. A hard rejection would fail
+all five official entries (`bitty = ">=0.5,<1.0"` or `">=0.1,<1.0"`) and the
+five plugin manifests plus the template and bundled runtime fixture, all of
+which the SDK mock host accepts. Instead, validation emits a warning naming
+the range when the closed resolver grammar cannot parse it — the warning
+predicate mirrors the resolver parser and its budgets (64-byte version, u32
+components, 16 comparators) and is regression-tested against the recorded
+probe table; the range stays accepted and the entry stays publishable. Full
+convergence is the pending CTX-0016 decision, with two candidate directions:
+extend the resolver's comparator grammar to accept the partial-version
+shorthand, or rewrite every entry, manifest, and fixture to strict `X.Y.Z`
+bounds. The caret zero-major/same-major divergence is a semantic contract
+question owned by the resolver and SDK, not a registry syntax change.
 
 ### Compatibility naming map
 
