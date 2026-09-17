@@ -105,3 +105,13 @@ and this project adheres to
 
 - The repository remains pre-implementation and has no initial release;
   entries appear here as scoped work is accepted.
+
+### Fixed
+
+- `integration-smoke` installs per-plugin dependencies before running each
+  plugin's `check` gate: when a `plugins/*/` checkout has a justfile and a
+  `bun.lock` but no `node_modules`, the recipe runs the plugin's own `install`
+  target, falling back to a frozen lockfile install for plugins whose justfile
+  predates the `install` target. This keeps the smoke run green for plugins
+  whose gates fail closed without installed dependencies, mirroring the
+  existing conditional SDK install.
