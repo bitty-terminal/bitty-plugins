@@ -99,8 +99,10 @@ actionlint:
 
 # Cross-submodule integration smoke: SDK, template, and official plugin
 # repositories. Requires initialized submodules; uninitialized ones are
-# reported and skipped. The Bitty core host is not available yet, so this
-# covers repository-level gates only.
+# reported and skipped. Per-plugin dependencies are installed on demand (the
+# plugin's own `install` target when present, otherwise a frozen lockfile
+# install) so fail-closed plugin gates run green. The Bitty core host is not
+# available yet, so this covers repository-level gates only.
 integration-smoke:
 	#!/usr/bin/env bash
 	set -euo pipefail
@@ -127,6 +129,14 @@ integration-smoke:
 	for dir in plugins/*/; do
 		if [[ -f "${dir}justfile" ]]; then
 			echo "== integration: ${dir%/}"
+			if [[ -f "${dir}bun.lock" && ! -d "${dir}node_modules" ]]; then
+				echo "== integration: installing ${dir%/} dependencies"
+				if just --justfile "${dir}justfile" --show install >/dev/null 2>&1; then
+					just --justfile "${dir}justfile" install || status=1
+				else
+					(cd "$dir" && bun install --frozen-lockfile) || status=1
+				fi
+			fi
 			just --justfile "${dir}justfile" check || status=1
 		else
 			echo "== integration: ${dir%/} has no justfile; skipping"
