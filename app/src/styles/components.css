@@ -102,6 +102,11 @@
   opacity: 0.75;
 }
 
+.badge-verified {
+  background: var(--badge-official-bg);
+  color: var(--badge-official-fg);
+}
+
 .external-link-blocked {
   color: var(--muted);
   text-decoration: line-through;

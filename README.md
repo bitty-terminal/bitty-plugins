@@ -145,6 +145,15 @@ sdk = "^0.1" # optional plugin API range (manifest `compat.plugin-api`)
   records a per-entry `signature_status` (`verified` | `unverified` |
   `unsigned`); no entry can be `verified` until a key-configured verification
   phase lands, so the current output is `unsigned`.
+- Official `manifest_hash` values pin the owning repository's
+  `bitty-plugin.toml` bytes at the submodule revision recorded by
+  `git ls-tree HEAD plugins/<name>`. When an official pin moves (submodule bump
+  or upstream manifest change), re-pin the hash in the same reviewed change:
+  read the manifest bytes at the new pin (for example
+  `git -C <checkout> show <pin>:bitty-plugin.toml | sha256sum`), write
+  `manifest_hash = "sha256:<hex>"` into `registry/official/<name>.toml`, then
+  run `just registry-generate` and `just registry-validate` before committing
+  the entry plus the regenerated `generated/registry.json` together.
 - `registry/schema.json` is the JSON Schema for entries and allows future
   kinds without a schema break.
 - The generated index is sorted by `id`, generated deterministically, and

@@ -3,6 +3,11 @@
 # Hand-maintained identity data only. Derived metadata (version, stars, dates,
 # downloads) is intentionally absent; `just registry-sync` mirrors the plugin's
 # bitty-plugin.toml into the optional `metadata` object of the generated index.
+#
+# Integrity (Phase 1, advisory): `manifest_hash` is the sha256 digest of the
+# owning repository's `bitty-plugin.toml` at the pinned submodule revision
+# recorded by `git ls-tree HEAD plugins/file-manager`. Refresh it when the pin
+# moves (see README "Registry model" refresh procedure).
 
 id = "bitty-terminal.file-manager"
 name = "File Manager"
@@ -13,6 +18,7 @@ description = "File listing, navigation, and preview over a root-parameterized s
 tags = ["files", "file-manager", "navigation", "preview"]
 categories = ["productivity"]
 license = "MIT"
+manifest_hash = "sha256:2dbea2df6c22a74b208d9715f828c00166ef672558f14a134ca08002339306b3"
 
 [compatibility]
 bitty = ">=0.1,<1.0"

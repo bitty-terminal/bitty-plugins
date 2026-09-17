@@ -5,6 +5,22 @@
 import { kindLabel, type Plugin } from "../registry.ts";
 import { badge, defineElement, el, link } from "./dom.ts";
 
+/**
+ * Advisory signature badge text. `signature_status` comes from the index and
+ * is not verified by the client in this phase, so the label stays descriptive
+ * and never asserts a verification the client did not perform.
+ */
+function signatureBadge(plugin: Plugin): string {
+  switch (plugin.signature_status) {
+    case "verified":
+      return "Index claims verified";
+    case "unverified":
+      return "Signature declared";
+    default:
+      return "Unsigned";
+  }
+}
+
 export class PluginCard extends HTMLElement {
   #plugin: Plugin | undefined;
 
@@ -44,6 +60,10 @@ export class PluginCard extends HTMLElement {
           plugin.official ? "official" : "community",
         ),
         badge(kindLabel(plugin.kind)),
+        badge(
+          signatureBadge(plugin),
+          plugin.signature_status === "verified" ? "verified" : "unverified",
+        ),
       ),
       plugin.description
         ? el("p", { class: "card-description" }, plugin.description)

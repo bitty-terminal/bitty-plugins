@@ -10,6 +10,15 @@ and this project adheres to
 
 ### Added
 
+- Official `manifest_hash` values for all five registry entries (Phase 1,
+  advisory). Each entry records `sha256:<hex>` of the owning repository's
+  `bitty-plugin.toml` at the pinned submodule revision, so the index binds each
+  official id to exact manifest bytes while signatures and verification stay
+  out of scope. The store surfaces the index-provided `signature_status` as an
+  advisory badge on cards and detail pages; no verification UI is added.
+  Refresh procedure: re-pin the hash with `just registry-generate` whenever an
+  official pin moves (see README "Registry model").
+
 - Registry `[compatibility]` range validation is backed by the structural
   parser in `scripts/semver.ts` as the single semver source. The accepted
   grammar is documented once by `VERSION_RANGE_SYNTAX` and reused verbatim in

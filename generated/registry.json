@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-16T18:10:36Z",
+  "generated_at": "2026-09-17T06:46:14Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -24,6 +24,7 @@
         "bitty": ">=0.5,<1.0",
         "sdk": "^0.1"
       },
+      "manifest_hash": "sha256:72132464d0c5da281407baefe1ab9dd18bc740cf05113add0b879d5d7e49efbf",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/activity/HEAD/bitty-plugin.toml",
         "version": "0.0.1",
@@ -55,6 +56,7 @@
         "bitty": ">=0.1,<1.0",
         "sdk": "^0.1"
       },
+      "manifest_hash": "sha256:2dbea2df6c22a74b208d9715f828c00166ef672558f14a134ca08002339306b3",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/file-manager/HEAD/bitty-plugin.toml",
         "version": "0.1.0",
@@ -88,6 +90,7 @@
         "bitty": ">=0.1,<1.0",
         "sdk": "^0.1"
       },
+      "manifest_hash": "sha256:2c256e20fe1bba353cd3e0eedd4c2d4225bf0564c7682d03ee8eae2307fb34aa",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/git-panel/HEAD/bitty-plugin.toml",
         "version": "0.1.0",
@@ -119,6 +122,7 @@
         "bitty": ">=0.1,<1.0",
         "sdk": "^0.1"
       },
+      "manifest_hash": "sha256:d9578e8ea93145db164122f2ba16ff42fc10e01e925c5af20315bdd5fc70d1cb",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/palette/HEAD/bitty-plugin.toml",
         "version": "0.0.1",
@@ -150,6 +154,7 @@
         "bitty": ">=0.1,<1.0",
         "sdk": "^0.1"
       },
+      "manifest_hash": "sha256:cbe8697ecdfc2efac142200b0202f9c0e4f92faf3ea8be2af54a4b308804a624",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/statusline/HEAD/bitty-plugin.toml",
         "version": "0.0.1",
@@ -180,7 +185,8 @@
       "compatibility": {
         "bitty": ">=0.1,<1.0",
         "sdk": "^0.1"
-      }
+      },
+      "manifest_hash": "sha256:991579d3de6aa1924bcd9242dc5561625f04bc5d3c00a42ae5081aa13177e139"
     }
   ]
 }
