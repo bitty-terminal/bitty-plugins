@@ -27,7 +27,7 @@
     },
     "manifest_hash": {
       "type": "string",
-      "description": "Optional canonical-form manifest digest (H-B): an algorithm-prefixed lowercase hex digest. Advisory in this phase; shape-checked, recorded in the index, and not cryptographically verified.",
+      "description": "Optional raw-manifest digest (H-A, Phase 1): an algorithm-prefixed lowercase hex digest over the fetched bitty-plugin.toml bytes at the pinned revision. Advisory in this phase; shape-checked, recorded in the index, and not cryptographically verified. Future phases will distinguish raw-bytes (H-A) from semantic canonical hashing (H-B) via explicit version tagging.",
       "pattern": "^[a-z0-9]+:[0-9a-f]{32,128}$",
       "maxLength": 160
     },
