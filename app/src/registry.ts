@@ -77,6 +77,51 @@ export const KIND_LABELS: Record<string, string> = {
   integration: "Integration",
 };
 
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
+}
+
+function isCompatibility(value: unknown): value is Compatibility {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  if (record.bitty !== undefined && typeof record.bitty !== "string") {
+    return false;
+  }
+  if (record.sdk !== undefined && typeof record.sdk !== "string") {
+    return false;
+  }
+  return true;
+}
+
+function isPluginMetadata(value: unknown): value is PluginMetadata {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  if (record.version !== undefined && typeof record.version !== "string") {
+    return false;
+  }
+  if (
+    record.description !== undefined &&
+    typeof record.description !== "string"
+  ) {
+    return false;
+  }
+  if (record.license !== undefined && typeof record.license !== "string") {
+    return false;
+  }
+  if (record.source !== undefined && typeof record.source !== "string") {
+    return false;
+  }
+  if (
+    record.fetched_at !== undefined &&
+    typeof record.fetched_at !== "string"
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function isPlugin(value: unknown): value is Plugin {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
@@ -92,6 +137,36 @@ function isPlugin(value: unknown): value is Plugin {
   ) {
     return false;
   }
+  if (record.author !== undefined && typeof record.author !== "string") {
+    return false;
+  }
+  if (
+    record.description !== undefined &&
+    typeof record.description !== "string"
+  ) {
+    return false;
+  }
+  if (record.tags !== undefined && !isStringArray(record.tags)) {
+    return false;
+  }
+  if (record.categories !== undefined && !isStringArray(record.categories)) {
+    return false;
+  }
+  if (record.license !== undefined && typeof record.license !== "string") {
+    return false;
+  }
+  if (
+    record.compatibility !== undefined &&
+    !isCompatibility(record.compatibility)
+  ) {
+    return false;
+  }
+  if (
+    record.manifest_hash !== undefined &&
+    typeof record.manifest_hash !== "string"
+  ) {
+    return false;
+  }
   if (record.signature_status !== undefined) {
     if (
       typeof record.signature_status !== "string" ||
@@ -99,6 +174,9 @@ function isPlugin(value: unknown): value is Plugin {
     ) {
       return false;
     }
+  }
+  if (record.metadata !== undefined && !isPluginMetadata(record.metadata)) {
+    return false;
   }
   return true;
 }
