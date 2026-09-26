@@ -4,10 +4,11 @@
 # downloads) is intentionally absent; `just registry-sync` mirrors the plugin's
 # bitty-plugin.toml into the optional `metadata` object of the generated index.
 #
-# Integrity (Phase 1, advisory): `manifest_hash` is the sha256 digest of the
-# owning repository's `bitty-plugin.toml` at the pinned submodule revision
-# recorded by `git ls-tree HEAD plugins/statusline`. Refresh it when the pin
-# moves (see README "Registry model" refresh procedure).
+# Integrity (Phase 1, advisory): `manifest_hash` is the sha256 digest (H-A: raw
+# bytes) of the owning repository's `bitty-plugin.toml` at the pinned submodule
+# revision recorded by `git ls-tree HEAD plugins/statusline`. This is a digest
+# over fetched transport bytes (H-A), not semantic canonical hashing (H-B).
+# Refresh it when the pin moves (see README "Registry model" refresh procedure).
 
 id = "bitty-terminal.statusline"
 name = "Statusline"

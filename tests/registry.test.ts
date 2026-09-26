@@ -688,6 +688,78 @@ describe("optional integrity fields", () => {
     });
     expect(errors.some((message) => message.includes("signature"))).toBe(false);
   });
+
+  test("manifest_hash in Phase 1 is H-A (raw bytes), not H-B (canonical)", () => {
+    // Phase 1: manifest_hash is SHA-256 over the fetched bitty-plugin.toml bytes
+    // at the pinned revision. This is H-A (raw transport bytes), not H-B (semantic
+    // canonical hashing). Two semantically identical manifests with different
+    // formatting will have different H-A digests.
+    const manifest1 = `
+[plugin]
+id = "example.plugin"
+version = "1.0.0"
+`;
+    const manifest2 = `
+[plugin]
+id="example.plugin"
+version="1.0.0"
+`;
+
+    // Same semantic content, different formatting -> different H-A digests
+    const hash1 = require("crypto")
+      .createHash("sha256")
+      .update(manifest1)
+      .digest("hex");
+    const hash2 = require("crypto")
+      .createHash("sha256")
+      .update(manifest2)
+      .digest("hex");
+
+    expect(hash1).not.toBe(hash2);
+
+    // Both are valid manifest_hash values in Phase 1 (H-A)
+    const errors1 = errorsOf({
+      ...baseEntry,
+      manifest_hash: `sha256:${hash1}`,
+    });
+    const errors2 = errorsOf({
+      ...baseEntry,
+      manifest_hash: `sha256:${hash2}`,
+    });
+
+    expect(errors1.some((message) => message.includes("manifest_hash"))).toBe(
+      false,
+    );
+    expect(errors2.some((message) => message.includes("manifest_hash"))).toBe(
+      false,
+    );
+  });
+
+  test("manifest_hash digest algorithm is versioned for future H-B migration", () => {
+    // The algorithm prefix (e.g., "sha256:") allows future H-B canonical
+    // hashing to use a different prefix (e.g., "sha256-canonical-v1:") to
+    // distinguish from H-A without breaking existing entries.
+    const errors = errorsOf({
+      ...baseEntry,
+      manifest_hash:
+        "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    });
+    expect(errors.some((message) => message.includes("manifest_hash"))).toBe(
+      false,
+    );
+
+    // Future canonical digest would use a different prefix
+    // (not yet implemented, so this would fail validation in Phase 1)
+    const futureErrors = errorsOf({
+      ...baseEntry,
+      manifest_hash:
+        "sha256-canonical-v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    });
+    // Phase 1 only accepts simple algorithm names without version suffixes
+    expect(
+      futureErrors.some((message) => message.includes("manifest_hash")),
+    ).toBe(true);
+  });
 });
 
 describe("duplicate detection", () => {

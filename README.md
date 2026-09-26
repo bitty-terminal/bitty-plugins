@@ -145,11 +145,14 @@ sdk = "^0.1" # optional plugin API range (manifest `compat.plugin-api`)
   records a per-entry `signature_status` (`verified` | `unverified` |
   `unsigned`); no entry can be `verified` until a key-configured verification
   phase lands, so the current output is `unsigned`.
-- Official `manifest_hash` values pin the owning repository's
-  `bitty-plugin.toml` bytes at the submodule revision recorded by
-  `git ls-tree HEAD plugins/<name>`. When an official pin moves (submodule bump
-  or upstream manifest change), re-pin the hash in the same reviewed change:
-  read the manifest bytes at the new pin (for example
+- Official `manifest_hash` values (Phase 1, H-A: raw-bytes digest) pin the
+  owning repository's `bitty-plugin.toml` bytes at the submodule revision
+  recorded by `git ls-tree HEAD plugins/<name>`. This is a SHA-256 digest over
+  the fetched transport bytes (H-A), not semantic canonical hashing (H-B).
+  Future phases will distinguish H-A from H-B via explicit version tagging.
+  When an official pin moves (submodule bump or upstream manifest change),
+  re-pin the hash in the same reviewed change: read the manifest bytes at the
+  new pin (for example
   `git -C <checkout> show <pin>:bitty-plugin.toml | sha256sum`), write
   `manifest_hash = "sha256:<hex>"` into `registry/official/<name>.toml`, then
   run `just registry-generate` and `just registry-validate` before committing
