@@ -286,6 +286,12 @@ export function loadEntries(): LoadResult {
       continue;
     }
     if (!value) continue;
+    // Validate raw types before normalization (PLUG-REG-001)
+    const typeErrors = validateRawEntryTypes(value, file);
+    if (typeErrors.length > 0) {
+      diagnostics.push(...typeErrors);
+      continue;
+    }
     entries.push({ file, official, entry: normalizeEntry(value), raw: value });
   }
   return { entries, diagnostics };
@@ -337,6 +343,104 @@ function normalizeEntry(value: Record<string, unknown>): RegistryEntry {
     }
   }
   return entry;
+}
+
+/**
+ * Validate raw entry types before normalization (PLUG-REG-001).
+ *
+ * The normalization step silently coerces wrong types to defaults, which can
+ * mask validation errors. This function checks required and optional field
+ * types against the schema before normalization runs, ensuring wrong types
+ * are reported as errors rather than defaulted.
+ */
+function validateRawEntryTypes(
+  value: Record<string, unknown>,
+  file: string,
+): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  const error = (message: string): void => {
+    diagnostics.push({ severity: "error", file, message });
+  };
+
+  // Required fields must be strings
+  if (value.id !== undefined && typeof value.id !== "string") {
+    error("`id` must be a string");
+  }
+  if (value.name !== undefined && typeof value.name !== "string") {
+    error("`name` must be a string");
+  }
+  if (value.repository !== undefined && typeof value.repository !== "string") {
+    error("`repository` must be a string");
+  }
+
+  // Optional string fields
+  if (value.kind !== undefined && typeof value.kind !== "string") {
+    error("`kind` must be a string");
+  }
+  if (value.author !== undefined && typeof value.author !== "string") {
+    error("`author` must be a string");
+  }
+  if (
+    value.description !== undefined &&
+    typeof value.description !== "string"
+  ) {
+    error("`description` must be a string");
+  }
+  if (value.license !== undefined && typeof value.license !== "string") {
+    error("`license` must be a string");
+  }
+  if (
+    value.manifest_hash !== undefined &&
+    typeof value.manifest_hash !== "string"
+  ) {
+    error("`manifest_hash` must be a string");
+  }
+
+  // Array fields
+  if (value.tags !== undefined && !isStringArray(value.tags)) {
+    error("`tags` must be an array of strings");
+  }
+  if (value.categories !== undefined && !isStringArray(value.categories)) {
+    error("`categories` must be an array of strings");
+  }
+
+  // Object fields
+  if (value.signature !== undefined && !isPlainObject(value.signature)) {
+    error("`signature` must be an object");
+  }
+  if (
+    value.compatibility !== undefined &&
+    !isPlainObject(value.compatibility)
+  ) {
+    error("`compatibility` must be an object");
+  }
+
+  // Nested signature fields (only if signature is an object)
+  if (isPlainObject(value.signature)) {
+    const sig = value.signature;
+    if (sig.algorithm !== undefined && typeof sig.algorithm !== "string") {
+      error("`signature.algorithm` must be a string");
+    }
+    if (sig.value !== undefined && typeof sig.value !== "string") {
+      error("`signature.value` must be a string");
+    }
+    if (sig.signer !== undefined && typeof sig.signer !== "string") {
+      error("`signature.signer` must be a string");
+    }
+  }
+
+  // Nested compatibility fields (only if compatibility is an object)
+  if (isPlainObject(value.compatibility)) {
+    const compat = value.compatibility;
+    if (compat.bitty !== undefined && typeof compat.bitty !== "string") {
+      error("`compatibility.bitty` must be a string");
+    }
+    if (compat.sdk !== undefined && typeof compat.sdk !== "string") {
+      error("`compatibility.sdk` must be a string");
+    }
+  }
+
+  return diagnostics;
 }
 
 /** Validate one entry against the accepted registry contract. */
@@ -674,6 +778,62 @@ const KNOWN_SPDX_EXCEPTIONS = new Set([
 
 const SPDX_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9.+-]*$/;
 
+/**
+ * Validate balanced parentheses in an SPDX expression (PLUG-REG-014).
+ * Returns an error message if parentheses are unbalanced, null otherwise.
+ */
+function validateBalancedParentheses(expression: string): string | null {
+  let depth = 0;
+  for (let i = 0; i < expression.length; i++) {
+    if (expression[i] === "(") {
+      depth++;
+    } else if (expression[i] === ")") {
+      depth--;
+      if (depth < 0) {
+        return "unmatched closing parenthesis";
+      }
+    }
+  }
+  if (depth > 0) {
+    return "unmatched opening parenthesis";
+  }
+  return null;
+}
+
+/**
+ * Tokenize SPDX expression preserving parentheses (PLUG-REG-014).
+ * Splits on whitespace but keeps parentheses as separate tokens.
+ */
+function tokenizeSpdxExpression(expression: string): string[] {
+  const tokens: string[] = [];
+  let current = "";
+
+  for (let i = 0; i < expression.length; i++) {
+    const char = expression.charAt(i);
+
+    if (char === "(" || char === ")") {
+      if (current.trim().length > 0) {
+        tokens.push(current.trim());
+        current = "";
+      }
+      tokens.push(char);
+    } else if (/\s/.test(char)) {
+      if (current.trim().length > 0) {
+        tokens.push(current.trim());
+        current = "";
+      }
+    } else {
+      current += char;
+    }
+  }
+
+  if (current.trim().length > 0) {
+    tokens.push(current.trim());
+  }
+
+  return tokens;
+}
+
 /** Validate an SPDX expression; returns hard errors and advisory warnings. */
 export function checkLicense(expression: string): {
   error?: string;
@@ -683,16 +843,55 @@ export function checkLicense(expression: string): {
   if (trimmed.length === 0) {
     return { error: "must not be empty", warnings: [] };
   }
-  const tokens = trimmed.replace(/[()]/g, " ").split(/\s+/).filter(Boolean);
+
+  // First validate balanced parentheses (PLUG-REG-014)
+  const parenError = validateBalancedParentheses(trimmed);
+  if (parenError) {
+    return { error: parenError, warnings: [] };
+  }
+
+  // Extract tokens while preserving parentheses as separate tokens
+  const tokens = tokenizeSpdxExpression(trimmed);
   if (tokens.length === 0) {
     return { error: "not a valid SPDX expression", warnings: [] };
   }
+
   const licenses: string[] = [];
   const exceptions: string[] = [];
   let expectIdentifier = true;
   let expectException = false;
   let previousWasException = false;
+  let depth = 0;
+
   for (const token of tokens) {
+    // Handle parentheses
+    if (token === "(") {
+      if (!expectIdentifier) {
+        return {
+          error: "opening parenthesis must follow an operator or be at start",
+          warnings: [],
+        };
+      }
+      depth++;
+      continue;
+    }
+    if (token === ")") {
+      if (expectIdentifier) {
+        return {
+          error: "closing parenthesis cannot follow an operator",
+          warnings: [],
+        };
+      }
+      depth--;
+      if (depth < 0) {
+        return {
+          error: "unmatched closing parenthesis",
+          warnings: [],
+        };
+      }
+      continue;
+    }
+
     const upper = token.toUpperCase();
     if (upper === "AND" || upper === "OR") {
       if (expectIdentifier) {
@@ -744,6 +943,10 @@ export function checkLicense(expression: string): {
       previousWasException = false;
     }
     expectIdentifier = false;
+  }
+
+  if (depth !== 0) {
+    return { error: "unmatched opening parenthesis", warnings: [] };
   }
   if (expectIdentifier) {
     return { error: "expression must not end with an operator", warnings: [] };
@@ -818,15 +1021,67 @@ export function validateRegistry(entries: LoadedEntry[]): Diagnostic[] {
   return diagnostics;
 }
 
-/** Repository basename, used to locate local submodule copies of official plugins. */
-export function repositoryName(repository: string): string {
+/**
+ * Centralized repository URL identity mapping (PLUG-REG-004).
+ *
+ * Extracts owner and repository name from a repository URL, preserving
+ * nested namespaces (e.g., gitlab.com/group/subgroup/repo). Returns null
+ * for unsupported URL shapes.
+ *
+ * Supported patterns:
+ * - github.com/owner/repo
+ * - gitlab.com/owner/repo (or nested: group/subgroup/repo)
+ * - Other hosts with at least owner/repo segments
+ *
+ * Returns { owner, repo, fullPath } where fullPath preserves all namespace
+ * segments for hosts that support nesting.
+ */
+export interface RepositoryIdentity {
+  /** First path segment (owner/organization) */
+  owner: string;
+  /** Last path segment (repository name) */
+  repo: string;
+  /** Full path preserving nested namespaces, e.g., "group/subgroup/repo" */
+  fullPath: string;
+  /** Hostname */
+  host: string;
+}
+
+export function parseRepositoryIdentity(
+  repository: string,
+): RepositoryIdentity | null {
   try {
     const url = new URL(repository);
     const segments = url.pathname.split("/").filter(Boolean);
-    return segments[segments.length - 1] ?? "";
+
+    if (segments.length < 2) {
+      return null; // Need at least owner/repo
+    }
+
+    const owner = segments[0];
+    const repo = segments[segments.length - 1];
+
+    if (!owner || !repo) {
+      return null; // Need at least owner and repo
+    }
+
+    const fullPath = segments.join("/");
+
+    return {
+      owner,
+      repo,
+      host: url.hostname,
+      fullPath,
+    };
   } catch {
-    return "";
+    return null;
   }
+}
+
+/** Repository basename, used to locate local submodule copies of official plugins. */
+export function repositoryName(repository: string): string {
+  const identity = parseRepositoryIdentity(repository);
+  return identity?.repo ?? "";
 }
 
 /** Where a local SDK checkout came from, in resolution precedence order. */
