@@ -23,6 +23,7 @@ import {
   formatDiagnostic,
   loadEntries,
   nowUtcSeconds,
+  parseRepositoryIdentity,
   readIndexFile,
   renderIndex,
   validateEntry,
@@ -50,25 +51,18 @@ Refreshes manifest metadata in ${GENERATED_FILE}.
 
 /** Map a repository URL to its raw manifest URL, or null for unsupported hosts. */
 export function rawManifestUrl(repository: string): string | null {
-  try {
-    const parsed = new URL(repository);
-    const segments = parsed.pathname.split("/").filter(Boolean);
-    const owner = segments[0];
-    const repo = segments[1];
-    if (!owner || !repo) return null;
-    if (
-      parsed.hostname === "github.com" ||
-      parsed.hostname === "www.github.com"
-    ) {
-      return `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/bitty-plugin.toml`;
-    }
-    if (parsed.hostname === "gitlab.com") {
-      return `https://gitlab.com/${owner}/${repo}/-/raw/HEAD/bitty-plugin.toml`;
-    }
-    return null;
-  } catch {
-    return null;
+  const identity = parseRepositoryIdentity(repository);
+  if (!identity) return null;
+
+  const { host, fullPath } = identity;
+
+  if (host === "github.com" || host === "www.github.com") {
+    return `https://raw.githubusercontent.com/${fullPath}/HEAD/bitty-plugin.toml`;
   }
+  if (host === "gitlab.com") {
+    return `https://gitlab.com/${fullPath}/-/raw/HEAD/bitty-plugin.toml`;
+  }
+  return null;
 }
 
 async function fetchText(url: string): Promise<string> {
