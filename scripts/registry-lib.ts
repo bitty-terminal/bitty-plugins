@@ -95,6 +95,7 @@ export interface IndexMetadata {
   license?: string;
   source?: string;
   fetched_at?: string;
+  repository_source?: string;
 }
 
 export interface IndexPlugin {
@@ -1659,9 +1660,19 @@ export function buildIndex(
     previousById.set(plugin.id, plugin);
   }
   const plugins = entries
-    .map(({ entry, official }) =>
-      toIndexPlugin(entry, official, previousById.get(entry.id)?.metadata),
-    )
+    .map(({ entry, official }) => {
+      const previousPlugin = previousById.get(entry.id);
+      let metadata = previousPlugin?.metadata;
+      // Invalidate metadata if repository has changed
+      if (
+        metadata?.repository_source !== undefined &&
+        normalizeRepositoryUrl(metadata.repository_source) !==
+          normalizeRepositoryUrl(entry.repository)
+      ) {
+        metadata = undefined;
+      }
+      return toIndexPlugin(entry, official, metadata);
+    })
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
   const generatedAt =
