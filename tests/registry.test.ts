@@ -1547,12 +1547,14 @@ license = "MIT"
       text,
       "https://raw.githubusercontent.com/example/sample-plugin/HEAD/bitty-plugin.toml",
       "sample.plugin",
+      "https://github.com/example/sample-plugin",
       undefined,
       "2024-01-01T00:00:00Z",
     );
     expect(result.metadata).toEqual({
       source:
         "https://raw.githubusercontent.com/example/sample-plugin/HEAD/bitty-plugin.toml",
+      repository_source: "https://github.com/example/sample-plugin",
       version: "1.0.0",
       description: "A sample plugin",
       license: "MIT",
@@ -1571,6 +1573,7 @@ version = "1.0.0"
       text,
       "https://raw.githubusercontent.com/example/sample-plugin/HEAD/bitty-plugin.toml",
       "sample.plugin",
+      "https://github.com/example/sample-plugin",
       undefined,
       "2024-01-01T00:00:00Z",
     );
@@ -1587,6 +1590,7 @@ version = "1.0.0"
       text,
       "https://raw.githubusercontent.com/example/sample-plugin/HEAD/bitty-plugin.toml",
       "sample.plugin",
+      "https://github.com/example/sample-plugin",
       undefined,
       "2024-01-01T00:00:00Z",
     );
@@ -1600,6 +1604,7 @@ version = "1.0.0"
       text,
       "https://raw.githubusercontent.com/example/sample-plugin/HEAD/bitty-plugin.toml",
       "sample.plugin",
+      "https://github.com/example/sample-plugin",
       undefined,
       "2024-01-01T00:00:00Z",
     );
@@ -1618,6 +1623,7 @@ license = "MIT"
     const previous = {
       source:
         "https://raw.githubusercontent.com/example/sample-plugin/HEAD/bitty-plugin.toml",
+      repository_source: "https://github.com/example/sample-plugin",
       version: "1.0.0",
       description: "A sample plugin",
       license: "MIT",
@@ -1627,6 +1633,7 @@ license = "MIT"
       text,
       "https://raw.githubusercontent.com/example/sample-plugin/HEAD/bitty-plugin.toml",
       "sample.plugin",
+      "https://github.com/example/sample-plugin",
       previous,
       "2024-01-02T00:00:00Z",
     );
@@ -1644,6 +1651,7 @@ license = "MIT"
     const previous = {
       source:
         "https://raw.githubusercontent.com/example/sample-plugin/HEAD/bitty-plugin.toml",
+      repository_source: "https://github.com/example/sample-plugin",
       version: "1.0.0",
       description: "A sample plugin",
       license: "MIT",
@@ -1653,10 +1661,74 @@ license = "MIT"
       text,
       "https://raw.githubusercontent.com/example/sample-plugin/HEAD/bitty-plugin.toml",
       "sample.plugin",
+      "https://github.com/example/sample-plugin",
       previous,
       "2024-01-02T00:00:00Z",
     );
     expect(result.metadata?.fetched_at).toBe("2024-01-02T00:00:00Z");
+  });
+
+  test("invalidates metadata when repository changes", () => {
+    const entries = [loaded(baseEntry)];
+    const previous: RegistryIndex = {
+      schema_version: 1,
+      generated_at: "2024-01-01T00:00:00Z",
+      plugins: [
+        {
+          id: "sample.plugin",
+          name: "Sample Plugin",
+          kind: "plugin",
+          repository: "https://github.com/example/sample-plugin",
+          official: false,
+          signature_status: "unsigned",
+          metadata: {
+            version: "1.0.0",
+            description: "A sample plugin",
+            source:
+              "https://raw.githubusercontent.com/example/sample-plugin/HEAD/bitty-plugin.toml",
+            repository_source: "https://github.com/old-owner/sample-plugin",
+            fetched_at: "2024-01-01T00:00:00Z",
+          },
+        },
+      ],
+    };
+    const index = buildIndex(entries, previous);
+    expect(index.plugins[0]?.metadata).toBeUndefined();
+  });
+
+  test("preserves metadata when repository URL has equivalent spelling", () => {
+    const entries = [loaded(baseEntry)];
+    const previous: RegistryIndex = {
+      schema_version: 1,
+      generated_at: "2024-01-01T00:00:00Z",
+      plugins: [
+        {
+          id: "sample.plugin",
+          name: "Sample Plugin",
+          kind: "plugin",
+          repository: "https://github.com/example/sample-plugin",
+          official: false,
+          signature_status: "unsigned",
+          metadata: {
+            version: "1.0.0",
+            description: "A sample plugin",
+            source:
+              "https://raw.githubusercontent.com/example/sample-plugin/HEAD/bitty-plugin.toml",
+            repository_source: "https://github.com/example/sample-plugin.git",
+            fetched_at: "2024-01-01T00:00:00Z",
+          },
+        },
+      ],
+    };
+    const index = buildIndex(entries, previous);
+    expect(index.plugins[0]?.metadata).toEqual({
+      version: "1.0.0",
+      description: "A sample plugin",
+      source:
+        "https://raw.githubusercontent.com/example/sample-plugin/HEAD/bitty-plugin.toml",
+      repository_source: "https://github.com/example/sample-plugin.git",
+      fetched_at: "2024-01-01T00:00:00Z",
+    });
   });
 });
 

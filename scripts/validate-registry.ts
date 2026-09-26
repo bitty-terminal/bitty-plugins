@@ -395,13 +395,13 @@ function checkSubmoduleMapping(entries: LoadedEntry[]): Diagnostic[] {
 }
 
 /**
- * Read recorded submodule pins (`plugins/<name>` to commit SHA) from
- * `git submodule status`, which works without initialized submodules.
- * Returns null when git cannot report the pins.
+ * Read recorded submodule gitlinks (`plugins/<name>` to commit SHA) from
+ * `git ls-tree HEAD`, which reads the gitlinks recorded in the parent commit
+ * rather than checkout status. Returns null when git cannot report the pins.
  */
 function readSubmodulePins(): Map<string, string> | null {
   const result = Bun.spawnSync({
-    cmd: ["git", "submodule", "status"],
+    cmd: ["git", "ls-tree", "HEAD", "plugins"],
     cwd: REPO_ROOT,
     stdout: "pipe",
     stderr: "pipe",
@@ -410,7 +410,9 @@ function readSubmodulePins(): Map<string, string> | null {
   if (result.exitCode !== 0) return null;
   const pins = new Map<string, string>();
   for (const line of result.stdout.toString().split("\n")) {
-    const match = line.match(/^[ +\-U]([0-9a-f]{40}) (\S+)/);
+    // Format: <mode> <type> <sha> <path>
+    // Example: 160000 commit abc123... plugins/activity
+    const match = line.match(/^160000 commit ([0-9a-f]{40})\t(.+)$/);
     const sha = match?.[1];
     const path = match?.[2];
     if (sha !== undefined && path !== undefined) pins.set(path, sha);

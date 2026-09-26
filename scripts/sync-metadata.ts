@@ -168,6 +168,7 @@ export function manifestMetadata(
   text: string,
   source: string,
   expectedId: string,
+  repositoryUrl: string,
   previous: IndexMetadata | undefined,
   fetchedAt: string,
 ): ManifestMetadataResult {
@@ -193,7 +194,7 @@ export function manifestMetadata(
     };
   }
 
-  const metadata: IndexMetadata = { source };
+  const metadata: IndexMetadata = { source, repository_source: repositoryUrl };
   if (typeof plugin.version === "string") metadata.version = plugin.version;
   if (typeof plugin.description === "string") {
     metadata.description = plugin.description;
@@ -207,7 +208,8 @@ export function manifestMetadata(
     previous.version === metadata.version &&
     previous.description === metadata.description &&
     previous.license === metadata.license &&
-    previous.source === metadata.source;
+    previous.source === metadata.source &&
+    previous.repository_source === metadata.repository_source;
   metadata.fetched_at =
     unchanged && previous.fetched_at ? previous.fetched_at : fetchedAt;
   return { metadata };
@@ -281,6 +283,7 @@ async function main(): Promise<number> {
         text,
         source,
         entry.id,
+        entry.repository,
         existing,
         nowUtcSeconds(),
       );
