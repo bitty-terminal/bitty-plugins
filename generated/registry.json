@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-17T06:46:14Z",
+  "generated_at": "2026-10-04T11:34:20Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -127,38 +127,6 @@
         "source": "https://raw.githubusercontent.com/bitty-terminal/palette/HEAD/bitty-plugin.toml",
         "version": "0.0.1",
         "description": "Command palette and picker UI via overlay slot, declarative primitives only",
-        "license": "MIT",
-        "fetched_at": "2026-09-15T05:41:04Z"
-      }
-    },
-    {
-      "id": "bitty-terminal.statusline",
-      "name": "Statusline",
-      "kind": "plugin",
-      "repository": "https://github.com/bitty-terminal/statusline",
-      "official": true,
-      "signature_status": "unsigned",
-      "author": "bitty-terminal",
-      "description": "Cwd, mode, Git and task presentation via status-component composition.",
-      "tags": [
-        "cwd",
-        "shell",
-        "status-bar",
-        "statusline"
-      ],
-      "categories": [
-        "productivity"
-      ],
-      "license": "MIT",
-      "compatibility": {
-        "bitty": ">=0.1,<1.0",
-        "sdk": "^0.1"
-      },
-      "manifest_hash": "sha256:cbe8697ecdfc2efac142200b0202f9c0e4f92faf3ea8be2af54a4b308804a624",
-      "metadata": {
-        "source": "https://raw.githubusercontent.com/bitty-terminal/statusline/HEAD/bitty-plugin.toml",
-        "version": "0.0.1",
-        "description": "Cwd, mode, Git and task presentation via status-component composition",
         "license": "MIT",
         "fetched_at": "2026-09-15T05:41:04Z"
       }
