@@ -1,0 +1,26 @@
+# Official registry entry: Unified Bar.
+#
+# Hand-maintained identity data only. Derived metadata (version, stars, dates,
+# downloads) is intentionally absent; `just registry-sync` mirrors the plugin's
+# bitty-plugin.toml into the optional `metadata` object of the generated index.
+#
+# Integrity (Phase 1, advisory): `manifest_hash` is the sha256 digest (H-A: raw
+# bytes) of the owning repository's `bitty-plugin.toml` at the pinned submodule
+# revision recorded by `git ls-tree HEAD plugins/bar`. This is a digest
+# over fetched transport bytes (H-A), not semantic canonical hashing (H-B).
+# Refresh it when the pin moves (see README "Registry model" refresh procedure).
+
+id = "bitty-terminal.bar"
+name = "Unified Bar"
+repository = "https://github.com/bitty-terminal/bar"
+kind = "plugin"
+author = "bitty-terminal"
+description = "Consolidated workspace-bar, tabs, and statusline presentation over generic chrome insets."
+tags = ["bar", "workspace-bar", "tabs", "statusline"]
+categories = ["productivity"]
+license = "MIT"
+manifest_hash = "sha256:947df76140c1d92cc4b880e2cbe421d5bbbdf2df80881d114aac26ddaa8a0929"
+
+[compatibility]
+bitty = ">=0.5,<1.0"
+sdk = "^0.1"

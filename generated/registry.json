@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-04T11:34:20Z",
+  "generated_at": "2026-10-04T16:30:39Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -32,6 +32,31 @@
         "license": "MIT",
         "fetched_at": "2026-09-15T05:41:03Z"
       }
+    },
+    {
+      "id": "bitty-terminal.bar",
+      "name": "Unified Bar",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/bar",
+      "official": true,
+      "signature_status": "unsigned",
+      "author": "bitty-terminal",
+      "description": "Consolidated workspace-bar, tabs, and statusline presentation over generic chrome insets.",
+      "tags": [
+        "bar",
+        "statusline",
+        "tabs",
+        "workspace-bar"
+      ],
+      "categories": [
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.5,<1.0",
+        "sdk": "^0.1"
+      },
+      "manifest_hash": "sha256:947df76140c1d92cc4b880e2cbe421d5bbbdf2df80881d114aac26ddaa8a0929"
     },
     {
       "id": "bitty-terminal.file-manager",
