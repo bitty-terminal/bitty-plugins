@@ -29,3 +29,15 @@
 [submodule "plugins/bar"]
 	path = plugins/bar
 	url = https://github.com/bitty-terminal/bar.git
+[submodule "plugins/composer"]
+	path = plugins/composer
+	url = https://github.com/bitty-terminal/composer.git
+[submodule "plugins/search"]
+	path = plugins/search
+	url = https://github.com/bitty-terminal/search.git
+[submodule "plugins/history"]
+	path = plugins/history
+	url = https://github.com/bitty-terminal/history.git
+[submodule "plugins/copy-mode"]
+	path = plugins/copy-mode
+	url = https://github.com/bitty-terminal/copy-mode.git

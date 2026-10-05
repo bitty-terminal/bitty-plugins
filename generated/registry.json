@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-04T16:30:39Z",
+  "generated_at": "2026-10-05T10:47:43Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -57,6 +57,56 @@
         "sdk": "^0.1"
       },
       "manifest_hash": "sha256:947df76140c1d92cc4b880e2cbe421d5bbbdf2df80881d114aac26ddaa8a0929"
+    },
+    {
+      "id": "bitty-terminal.composer",
+      "name": "Composer",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/composer",
+      "official": true,
+      "signature_status": "unsigned",
+      "author": "bitty-terminal",
+      "description": "Editable command-line policy over the public overlay, submit, and editor host APIs: modal buffer, chord routing, bounded paste, and external-editor round trip.",
+      "tags": [
+        "command-line",
+        "composer",
+        "editor",
+        "overlay"
+      ],
+      "categories": [
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.0.21,<0.1",
+        "sdk": "^0.1"
+      },
+      "manifest_hash": "sha256:cc2e382018ae383f7765adabcc4b61b26dd490461afcc74add65df2135045c15"
+    },
+    {
+      "id": "bitty-terminal.copy-mode",
+      "name": "Copy mode",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/copy-mode",
+      "official": true,
+      "signature_status": "unsigned",
+      "author": "bitty-terminal",
+      "description": "Modal visual selection over the public history snapshot API: bounded scoped transcript queries with typed denials, untrusted labels, anchor/cursor selection, and grant-gated yank.",
+      "tags": [
+        "clipboard",
+        "copy-mode",
+        "selection",
+        "transcript"
+      ],
+      "categories": [
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.5,<1.0",
+        "sdk": "^0.1"
+      },
+      "manifest_hash": "sha256:907813b7dab2da3548b97aef47f61a2f61e88b474c409476eaaa98d2c05b1e12"
     },
     {
       "id": "bitty-terminal.file-manager",
@@ -125,6 +175,31 @@
       }
     },
     {
+      "id": "bitty-terminal.history",
+      "name": "History",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/history",
+      "official": true,
+      "signature_status": "unsigned",
+      "author": "bitty-terminal",
+      "description": "Opt-in history reads over the public history-read host APIs: scoped bounded snapshot queries over transcript, commands, and own KV with redacted answers or typed denials.",
+      "tags": [
+        "commands",
+        "history",
+        "kv",
+        "transcript"
+      ],
+      "categories": [
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.5,<1.0",
+        "sdk": "^0.1"
+      },
+      "manifest_hash": "sha256:22d978eb84b15c383d7a9720525a9765e6e4eab69cf34576eded771ee17bdbed"
+    },
+    {
       "id": "bitty-terminal.palette",
       "name": "Palette",
       "kind": "plugin",
@@ -155,6 +230,31 @@
         "license": "MIT",
         "fetched_at": "2026-09-15T05:41:04Z"
       }
+    },
+    {
+      "id": "bitty-terminal.search",
+      "name": "Search",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/search",
+      "official": true,
+      "signature_status": "unsigned",
+      "author": "bitty-terminal",
+      "description": "Scrollback search over the public history snapshot API: bounded scoped transcript queries with typed denials, untrusted labels, result navigation, and grant-gated export.",
+      "tags": [
+        "history",
+        "scrollback",
+        "search",
+        "transcript"
+      ],
+      "categories": [
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.5,<1.0",
+        "sdk": "^0.1"
+      },
+      "manifest_hash": "sha256:51a57d855dede4012c3e07a2e791a0c2e2a5e193f1efd78aca5feddc1dba5129"
     },
     {
       "id": "bitty-terminal.wheel",
