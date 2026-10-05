@@ -1,0 +1,26 @@
+# Official registry entry: Search.
+#
+# Hand-maintained identity data only. Derived metadata (version, stars, dates,
+# downloads) is intentionally absent; `just registry-sync` mirrors the plugin's
+# bitty-plugin.toml into the optional `metadata` object of the generated index.
+#
+# Integrity (Phase 1, advisory): `manifest_hash` is the sha256 digest (H-A: raw
+# bytes) of the owning repository's `bitty-plugin.toml` at the pinned submodule
+# revision recorded by `git ls-tree HEAD plugins/search`. This is a digest
+# over fetched transport bytes (H-A), not semantic canonical hashing (H-B).
+# Refresh it when the pin moves (see README "Registry model" refresh procedure).
+
+id = "bitty-terminal.search"
+name = "Search"
+repository = "https://github.com/bitty-terminal/search"
+kind = "plugin"
+author = "bitty-terminal"
+description = "Scrollback search over the public history snapshot API: bounded scoped transcript queries with typed denials, untrusted labels, result navigation, and grant-gated export."
+tags = ["search", "scrollback", "transcript", "history"]
+categories = ["productivity"]
+license = "MIT"
+manifest_hash = "sha256:51a57d855dede4012c3e07a2e791a0c2e2a5e193f1efd78aca5feddc1dba5129"
+
+[compatibility]
+bitty = ">=0.5,<1.0"
+sdk = "^0.1"
