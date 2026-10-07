@@ -42,5 +42,8 @@ become an Issue and CarryCtx task in the owning repository before work starts.
 ## Ecosystem
 
 - [ ] Create the `beacon` repository (next official plugin) and register it.
+      Planned tracking: W-121 / CTX-0030 / Issue #64. Blocked: beacon #3/#2/#1
+      remain open behind umbrella bitty#1629; only #4 is closed (#7 merged).
+      No repository creation or registry entry until contracts are accepted.
 - [ ] Publish the CLI proposal (`bitty plugin add/search`) in
       `bitty-plugins-docs` and link it from the store once accepted.
