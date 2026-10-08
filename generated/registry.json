@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-05T10:47:43Z",
+  "generated_at": "2026-10-08T19:13:41Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -276,7 +276,7 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.1,<1.0",
+        "bitty": ">=0.5,<1.0",
         "sdk": "^0.1"
       },
       "manifest_hash": "sha256:991579d3de6aa1924bcd9242dc5561625f04bc5d3c00a42ae5081aa13177e139"

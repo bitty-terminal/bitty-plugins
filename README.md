@@ -56,6 +56,12 @@ SDK and template implementations (their own repositories).
   `bitty-terminal.search`, `bitty-terminal.wheel`.
   `plugins/statusline` remains as a retired checkout with no registry entry
   (superseded entry removed in #68/#69) and is not counted in the 10.
+  `bitty-featured.devtools` has no registry entry yet: its checkout exists
+  only as an unpinned local clone (no `plugins/devtools` submodule, no
+  onboarding review), so the pre-0.0.22 headless gate records it as excluded
+  pending an onboarding decision (#77). `bitty-terminal/beacon` has neither a
+  checkout nor an entry: creation and registration stay blocked on contract
+  readiness (#64; TODO "Ecosystem").
 - **Community plugins are never submodules.** They live only as registry
   entries at `registry/community/<author>-<slug>.toml`, one file per plugin, in
   a machine-readable awesome-list model. This repository never clones or pins

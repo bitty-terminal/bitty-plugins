@@ -22,5 +22,11 @@ categories = ["productivity"]
 license = "MIT"
 
 [compatibility]
-bitty = ">=0.1,<1.0"
+# Mirrors the pinned manifest (plugins/wheel @ 524ce07 declares compat.bitty
+# ">=0.5,<1.0"; sha256 of the pinned bytes matches manifest_hash above).
+# Headless gate vs host 0.0.22 records this entry as expected-red
+# (E_INCOMPATIBLE) pending bitty-terminal/wheel#39 (PR wheel#40 lowers the
+# floor to ">=0.0.21,<0.1"; the registry mirror and pin refresh follow that
+# merge in a separate reviewed change).
+bitty = ">=0.5,<1.0"
 sdk = "^0.1"
