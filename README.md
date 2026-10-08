@@ -32,7 +32,7 @@ behavior. Do not describe the store or CLI as shipped product behavior.
 | `registry/`  | Machine-readable registry entries (official and community), plus the entry schema.                                                |
 | `generated/` | Built artifacts consumed by downstream clients; only `registry.json` today.                                                       |
 | `app/`       | Static store frontend (Vite + TypeScript, vanilla DOM / Web Components, no framework).                                            |
-| `plugins/`   | Official maintained plugins as pinned Git submodules (known-good set).                                                            |
+| `plugins/`   | 10 official maintained plugins as pinned Git submodules (known-good set; plus retired `statusline` checkout with no entry).       |
 | `sdk/`       | Submodule: [bitty-plugin-sdk](https://github.com/bitty-terminal/bitty-plugin-sdk).                                                |
 | `template/`  | Submodule: [bitty-plugin-template](https://github.com/bitty-terminal/bitty-plugin-template).                                      |
 | `docs/`      | Submodule: [bitty-plugins-docs](https://github.com/bitty-terminal/bitty-plugins-docs) — canonical plugin-ecosystem documentation. |
@@ -45,16 +45,37 @@ SDK and template implementations (their own repositories).
 
 ## Official versus community boundary (fixed)
 
-- **Official plugins** live in `plugins/` as pinned submodules. An update is a
-  submodule pointer bump reviewed like any other change; the directory is the
-  known-good set maintained by `bitty-terminal`.
+- **Official plugins (10)** live in `plugins/` as pinned submodules. An update
+  is a submodule pointer bump reviewed like any other change; the directory is
+  the known-good set maintained by `bitty-terminal`. The 10 registry entries
+  under `registry/official/` and in `generated/registry.json` are:
+  `bitty-featured.activity`, `bitty-terminal.bar`,
+  `bitty-terminal.composer`, `bitty-terminal.copy-mode`,
+  `bitty-terminal.file-manager`, `bitty-terminal.git-panel`,
+  `bitty-terminal.history`, `bitty-terminal.palette`,
+  `bitty-terminal.search`, `bitty-terminal.wheel`.
+  `plugins/statusline` remains as a retired checkout with no registry entry
+  (superseded entry removed in #68/#69) and is not counted in the 10.
 - **Community plugins are never submodules.** They live only as registry
   entries at `registry/community/<author>-<slug>.toml`, one file per plugin, in
   a machine-readable awesome-list model. This repository never clones or pins
   community code.
 - Official entries live at `registry/official/<name>.toml` and are marked
   `official: true` in the generated index. The distinction is derived from the
-  entry location, never declared inside the entry.
+  entry location, never declared inside the entry. Each official pin must be a
+  commit reachable from the plugin repository mainline; a pin bump also
+  re-pins the entry `manifest_hash` and regenerates `generated/registry.json`
+  in the same reviewed change.
+
+Fail-soft: validation and the store degrade gracefully instead of failing
+closed on missing or unreachable data. When no local checkout resolves for an
+official entry, the skipped entries are reported as one aggregate warning
+with the count; repository existence checks treat `404`/`410` as hard errors,
+other HTTP responses as warnings, and network errors as skips with the
+skipped count; `--skip-network` reports how many checks it skipped. The store
+treats `generated/registry.json` as untrusted, re-validates `id` and
+`repository` at load time, allows only `https:` links, and shows integrity
+fields as advisory badges, never as tamper protection.
 
 ## Maintaining the registry
 
