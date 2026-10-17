@@ -67,3 +67,4 @@
 {"created_at":"2026-10-17T14:12:26.407633523+00:00","id":"01M5539WN7PTPDZEAWB0A4PEH7","kind":"include","pattern":"recording/plugin-registry-release-0.0.24/**","project_id":"01M2E0AGA8R1CF9YMH8MENJ2Q9","task_id":"01M5536J6BCWCMSCWM82YMBRP9"}
 {"created_at":"2026-10-17T14:17:34.083506408+00:00","id":"01M553K943BXVB012N212MJ724","kind":"include","pattern":"registry/official/file-manager.toml","project_id":"01M2E0AGA8R1CF9YMH8MENJ2Q9","task_id":"01M5536J6BCWCMSCWM82YMBRP9"}
 {"created_at":"2026-10-17T14:17:34.117391020+00:00","id":"01M553K9551MGKT8Q0CHHYF3Q4","kind":"include","pattern":"generated/registry.json","project_id":"01M2E0AGA8R1CF9YMH8MENJ2Q9","task_id":"01M5536J6BCWCMSCWM82YMBRP9"}
+{"created_at":"2026-10-17T15:46:32.564328429+00:00","id":"01M558P6FM1FAAQ2MK7JXTHSZY","kind":"include","pattern":"docs","project_id":"01M2E0AGA8R1CF9YMH8MENJ2Q9","task_id":"01M558NJ3ZHWF7HT1N4E274NGK"}
