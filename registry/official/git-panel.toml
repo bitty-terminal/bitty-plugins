@@ -19,8 +19,8 @@ description = "Tiled Panel git branch/status/diff/log via process.spawn:git allo
 tags = ["git", "version-control", "panel", "diff", "log"]
 categories = ["productivity", "developer-tools"]
 license = "MIT"
-manifest_hash = "sha256:2c256e20fe1bba353cd3e0eedd4c2d4225bf0564c7682d03ee8eae2307fb34aa"
+manifest_hash = "sha256:3c54e6e9f21c2b2882eee7784fda2734ef61af6242c064940403713d0d248f8c"
 
 [compatibility]
-bitty = ">=0.1,<1.0"
-sdk = "^0.1"
+bitty = ">=0.0.24,<0.1"
+sdk = "^1.0"

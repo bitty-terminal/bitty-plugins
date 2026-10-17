@@ -19,8 +19,8 @@ description = "Command palette and picker UI via overlay slot, declarative primi
 tags = ["palette", "command-palette", "picker", "overlay"]
 categories = ["productivity"]
 license = "MIT"
-manifest_hash = "sha256:d9578e8ea93145db164122f2ba16ff42fc10e01e925c5af20315bdd5fc70d1cb"
+manifest_hash = "sha256:1ed4d2becaa0a830b1b745683090473b68b64488bb1dc59c1c62282e70788531"
 
 [compatibility]
-bitty = ">=0.1,<1.0"
-sdk = "^0.1"
+bitty = ">=0.0.24,<0.1"
+sdk = "^1.0"
