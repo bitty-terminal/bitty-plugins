@@ -133,11 +133,12 @@
       },
       "manifest_hash": "sha256:9c0f5161809fa25beff381ea984d6b5102f98c91718953a287a3be05ccdb62d6",
       "metadata": {
-        "source": "https://raw.githubusercontent.com/bitty-terminal/file-manager/HEAD/bitty-plugin.toml",
+        "source": "https://raw.githubusercontent.com/bitty-terminal/file-manager/bf3a17ea6aa1ea0fcc3a45a13ceaa069e83b71d4/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/file-manager",
         "version": "0.1.0",
-        "description": "Tiled Panel file manager with fs.read + optional fs.write, bounded 8KiB/32/64 PR-1..12",
+        "description": "File manager listing, navigation, and preview with terminal observation only, bounded 8KiB payload",
         "license": "MIT",
-        "fetched_at": "2026-09-15T09:31:47Z"
+        "fetched_at": "2026-10-17T14:13:35Z"
       }
     },
     {
