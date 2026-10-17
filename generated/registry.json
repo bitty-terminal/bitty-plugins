@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-17T13:36:31Z",
+  "generated_at": "2026-10-17T14:27:27Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -81,7 +81,7 @@
         "bitty": ">=0.0.21,<0.1",
         "sdk": "^0.1"
       },
-      "manifest_hash": "sha256:cc2e382018ae383f7765adabcc4b61b26dd490461afcc74add65df2135045c15"
+      "manifest_hash": "sha256:6837c4e246b7356711cdd3398262632085a2d6dac37387cad38eef7b67351986"
     },
     {
       "id": "bitty-terminal.copy-mode",
