@@ -19,8 +19,8 @@ description = "Privacy-first local activity timeline plugin for the Bitty termin
 tags = ["activity", "privacy", "timeline"]
 categories = ["productivity"]
 license = "MIT"
-manifest_hash = "sha256:72132464d0c5da281407baefe1ab9dd18bc740cf05113add0b879d5d7e49efbf"
+manifest_hash = "sha256:c3eafddd0aff0b3cb1f992806b892a08305e4420f90648f3e1087ca25af664eb"
 
 [compatibility]
-bitty = ">=0.5,<1.0"
-sdk = "^0.1"
+bitty = ">=0.0.24,<0.1"
+sdk = "^1.0"

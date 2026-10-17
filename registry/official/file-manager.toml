@@ -19,8 +19,8 @@ description = "File listing, navigation, and preview over a root-parameterized s
 tags = ["files", "file-manager", "navigation", "preview"]
 categories = ["productivity"]
 license = "MIT"
-manifest_hash = "sha256:2dbea2df6c22a74b208d9715f828c00166ef672558f14a134ca08002339306b3"
+manifest_hash = "sha256:9c0f5161809fa25beff381ea984d6b5102f98c91718953a287a3be05ccdb62d6"
 
 [compatibility]
-bitty = ">=0.1,<1.0"
-sdk = "^0.1"
+bitty = ">=0.0.24,<0.1"
+sdk = "^1.0"
