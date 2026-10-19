@@ -23,9 +23,6 @@
 [submodule "plugins/file-manager"]
 	path = plugins/file-manager
 	url = https://github.com/bitty-terminal/file-manager.git
-[submodule "plugins/wheel"]
-	path = plugins/wheel
-	url = https://github.com/bitty-terminal/wheel
 [submodule "plugins/bar"]
 	path = plugins/bar
 	url = https://github.com/bitty-terminal/bar.git
