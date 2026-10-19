@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-19T06:20:09Z",
+  "generated_at": "2026-10-19T06:27:53Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -103,10 +103,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.5,<1.0",
-        "sdk": "^0.1"
+        "bitty": ">=0.0.24,<0.1",
+        "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:907813b7dab2da3548b97aef47f61a2f61e88b474c409476eaaa98d2c05b1e12"
+      "manifest_hash": "sha256:95464e62052eda8875e35cae88789bc68b048a79e8dbea604ea79dcae89f120f"
     },
     {
       "id": "bitty-terminal.file-manager",
@@ -195,10 +195,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.5,<1.0",
-        "sdk": "^0.1"
+        "bitty": ">=0.0.24,<0.1",
+        "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:22d978eb84b15c383d7a9720525a9765e6e4eab69cf34576eded771ee17bdbed"
+      "manifest_hash": "sha256:13f46e275fe9d1ad2818c2c0c3bb4ba21096ccd8e5961f5c5bb10ed285c17faf"
     },
     {
       "id": "bitty-terminal.palette",
@@ -252,10 +252,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.5,<1.0",
-        "sdk": "^0.1"
+        "bitty": ">=0.0.24,<0.1",
+        "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:51a57d855dede4012c3e07a2e791a0c2e2a5e193f1efd78aca5feddc1dba5129"
+      "manifest_hash": "sha256:59eaeab6b9151e91478082a9cb48a87ec27c1b32fe315e5be2abdce6a041e948"
     },
     {
       "id": "bitty-terminal.wheel",
