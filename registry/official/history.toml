@@ -19,8 +19,8 @@ description = "Opt-in history reads over the public history-read host APIs: scop
 tags = ["history", "transcript", "commands", "kv"]
 categories = ["productivity"]
 license = "MIT"
-manifest_hash = "sha256:22d978eb84b15c383d7a9720525a9765e6e4eab69cf34576eded771ee17bdbed"
+manifest_hash = "sha256:13f46e275fe9d1ad2818c2c0c3bb4ba21096ccd8e5961f5c5bb10ed285c17faf"
 
 [compatibility]
-bitty = ">=0.5,<1.0"
-sdk = "^0.1"
+bitty = ">=0.0.24,<0.1"
+sdk = "^1.0"
