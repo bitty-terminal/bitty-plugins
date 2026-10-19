@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-19T06:43:11Z",
+  "generated_at": "2026-10-19T07:18:36Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -106,7 +106,7 @@
         "bitty": ">=0.0.24,<0.1",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:95464e62052eda8875e35cae88789bc68b048a79e8dbea604ea79dcae89f120f"
+      "manifest_hash": "sha256:d1b4bfc522b827e2312188c1dffbc1334a1907b90af29b578eb42ab8f77e7c64"
     },
     {
       "id": "bitty-terminal.file-manager",
@@ -198,7 +198,7 @@
         "bitty": ">=0.0.24,<0.1",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:13f46e275fe9d1ad2818c2c0c3bb4ba21096ccd8e5961f5c5bb10ed285c17faf"
+      "manifest_hash": "sha256:f4263dd2af80e8f252b86ca2b2c9a052ced87fa646675d6cac3596e3cde333c5"
     },
     {
       "id": "bitty-terminal.palette",
@@ -255,7 +255,7 @@
         "bitty": ">=0.0.24,<0.1",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:59eaeab6b9151e91478082a9cb48a87ec27c1b32fe315e5be2abdce6a041e948"
+      "manifest_hash": "sha256:0e9203fcd2371db170199173515d07ee7a3aa22f1c805d4d2f213abb73e25a09"
     }
   ]
 }
