@@ -19,7 +19,7 @@ description = "Editable command-line policy over the public overlay, submit, and
 tags = ["composer", "command-line", "overlay", "editor"]
 categories = ["productivity"]
 license = "MIT"
-manifest_hash = "sha256:6837c4e246b7356711cdd3398262632085a2d6dac37387cad38eef7b67351986"
+manifest_hash = "sha256:32e2672cd5742616cd07d55e3eb8abd9c1eb9824c57c2c7b305f89fe4aed2c8d"
 
 [compatibility]
 bitty = ">=0.0.21,<0.1"
