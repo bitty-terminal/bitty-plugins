@@ -115,6 +115,16 @@ and this project adheres to
 - The repository remains pre-implementation and has no initial release;
   entries appear here as scoped work is accepted.
 
+### Removed
+
+- `bitty-terminal.wheel` removed from the official registry and the
+  `plugins/` known-good set on owner decision (2026-10-19). The repository is
+  the Agent Harness, not a scroll plugin, so it is not a valid official
+  extension. The registry entry and the `plugins/wheel` submodule pin are
+  deleted, [`generated/registry.json`](generated/registry.json) is
+  regenerated, and the [wheel repository](https://github.com/bitty-terminal/wheel)
+  remains available but is not an official plugin.
+
 ### Fixed
 
 - `integration-smoke` installs per-plugin dependencies before running each

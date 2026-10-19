@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-19T06:27:53Z",
+  "generated_at": "2026-10-19T06:39:21Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -256,31 +256,6 @@
         "sdk": "^1.0"
       },
       "manifest_hash": "sha256:59eaeab6b9151e91478082a9cb48a87ec27c1b32fe315e5be2abdce6a041e948"
-    },
-    {
-      "id": "bitty-terminal.wheel",
-      "name": "Wheel",
-      "kind": "plugin",
-      "repository": "https://github.com/bitty-terminal/wheel",
-      "official": true,
-      "signature_status": "unsigned",
-      "author": "bitty-terminal",
-      "description": "The official Agent Harness plugin for the Bitty terminal (mascot: Bittie the hamster). Pre-implementation scaffold.",
-      "tags": [
-        "agent",
-        "agent-harness",
-        "ai",
-        "harness"
-      ],
-      "categories": [
-        "productivity"
-      ],
-      "license": "MIT",
-      "compatibility": {
-        "bitty": ">=0.5,<1.0",
-        "sdk": "^0.1"
-      },
-      "manifest_hash": "sha256:991579d3de6aa1924bcd9242dc5561625f04bc5d3c00a42ae5081aa13177e139"
     }
   ]
 }
