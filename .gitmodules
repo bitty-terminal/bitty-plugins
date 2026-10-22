@@ -41,3 +41,7 @@
 [submodule "plugins/copy-mode"]
 	path = plugins/copy-mode
 	url = https://github.com/bitty-terminal/copy-mode.git
+
+[submodule "plugins/dashboard"]
+	path = plugins/dashboard
+	url = https://github.com/bitty-terminal/dashboard.git

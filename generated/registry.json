@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-22T01:39:14Z",
+  "generated_at": "2026-10-22T02:22:52Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -165,6 +165,32 @@
         "license": "MIT",
         "fetched_at": "2026-10-22T00:47:16Z"
       }
+    },
+    {
+      "id": "bitty-terminal.dashboard",
+      "name": "Dashboard",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/dashboard",
+      "official": true,
+      "signature_status": "unsigned",
+      "author": "bitty-terminal",
+      "description": "Read-only configuration and status dashboard over bitty.runtime.inspect(): plugins, extensions, settings, profiles, and diagnostics in one panel.",
+      "tags": [
+        "configuration",
+        "dashboard",
+        "diagnostics",
+        "inspector",
+        "status"
+      ],
+      "categories": [
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.0.26,<0.1",
+        "sdk": "^1.0"
+      },
+      "manifest_hash": "sha256:1a7dd220ef1a3152ef8fd5dcfacd87100805298a6ffae1939239ed866815597f"
     },
     {
       "id": "bitty-terminal.file-manager",
