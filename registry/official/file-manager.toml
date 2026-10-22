@@ -19,8 +19,8 @@ description = "Bounded read-only directory listing, navigation, and preview for 
 tags = ["files", "file-manager", "navigation", "preview"]
 categories = ["productivity"]
 license = "MIT"
-manifest_hash = "sha256:561801482d1d48cceab736d88936c5584cc57ae26ea8efc7809fbaa7581d459a"
+manifest_hash = "sha256:b26f36ecbe7ce5b3fb0338c90c594f98a104de021a9b7eab4b6b6af8645fa010"
 
 [compatibility]
-bitty = ">=0.0.24,<0.1"
+bitty = ">=0.0.24"
 sdk = "^1.0"

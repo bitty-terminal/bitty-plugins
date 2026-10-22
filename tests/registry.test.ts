@@ -45,6 +45,7 @@ import {
 } from "../app/src/registry.ts";
 import {
   isValidVersionRange,
+  minimumOnlyRangeProblem,
   resolverRangeProblem,
   versionRangeProblem,
   VERSION_RANGE_SYNTAX,
@@ -150,6 +151,29 @@ describe("semver range syntax", () => {
     expect(versionRangeProblem("")).toContain("empty");
     expect(versionRangeProblem("a".repeat(129))).toContain("128");
     expect(versionRangeProblem(">=0.5,<1.0")).toBeNull();
+  });
+
+  test("flags upper bounds for minimum-only host ranges (bitty#2462)", () => {
+    for (const range of [
+      ">=0.5,<1.0",
+      ">=0.0.24,<0.1",
+      "<0.1",
+      "<=0.0.24",
+      "=0.0.24",
+      "^0.1",
+      "~1.2.3",
+      "0.0.24",
+    ]) {
+      expect(minimumOnlyRangeProblem(range)).not.toBeNull();
+    }
+    for (const range of [
+      ">=0.0.24",
+      ">= 0.5",
+      ">0.0.21",
+      ">=0.0.24,>=0.0.25",
+    ]) {
+      expect(minimumOnlyRangeProblem(range)).toBeNull();
+    }
   });
 
   test("models the source-confirmed host resolver grammar (CTX-0016)", () => {
@@ -626,6 +650,23 @@ describe("compatibility naming and version ranges (R8/R27)", () => {
     );
     const warnings = diagnostics.filter((d) => d.severity === "warning");
     expect(warnings.length).toBeGreaterThan(0);
+  });
+
+  test("rejects a ceiling in compatibility.bitty (bitty#2462)", () => {
+    const errors = errorsOf({
+      ...baseEntry,
+      compatibility: { bitty: ">=0.0.24,<0.1" },
+    });
+    expect(errors.some((message) => message.includes("minimum-only"))).toBe(
+      true,
+    );
+    expect(
+      errorsOf({ ...baseEntry, compatibility: { bitty: ">=0.0.24" } }),
+    ).toEqual([]);
+    // Only the host range is minimum-only; the SDK range keeps its ceiling.
+    expect(
+      errorsOf({ ...baseEntry, compatibility: { sdk: "^1.2.3, <2.0.0" } }),
+    ).toEqual([]);
   });
 });
 

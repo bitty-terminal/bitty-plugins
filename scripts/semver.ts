@@ -116,6 +116,31 @@ export function isValidVersionRange(range: string): boolean {
 }
 
 /**
+ * Return null when a host compatibility range declares only a minimum version,
+ * otherwise a human-readable reason naming the upper bound.
+ *
+ * Host compatibility is minimum-only (bitty#2462): the host admits a newer
+ * release instead of rejecting it on a ceiling, so a range that constrains the
+ * upper side rejects future hosts before they can run the plugin. Only `>=`
+ * and `>` comparators are lower bounds; `<`, `<=`, `=`, caret, tilde, and a
+ * bare exact version all carry an upper bound and are reported. Structural
+ * syntax is `versionRangeProblem`'s job; this predicate is about direction.
+ */
+export function minimumOnlyRangeProblem(range: string): string | null {
+  const trimmed = range.trim();
+  if (trimmed.length === 0) return "range is empty";
+  const ceilings: string[] = [];
+  for (const comparator of trimmed.split(",")) {
+    const token = comparator.trim();
+    if (token.length === 0) continue;
+    if (!token.startsWith(">")) ceilings.push(token);
+  }
+  if (ceilings.length === 0) return null;
+  const named = ceilings.map((token) => `"${token}"`).join(", ");
+  return `upper bound ${named} is not allowed; declare a minimum-only range such as ">=0.0.24"`;
+}
+
+/**
  * Return null when `range` is inside the closed grammar accepted by the host
  * resolver (`bitty-package`), otherwise a human-readable reason. The rules
  * mirror the resolver parser, confirmed case by case against the probe

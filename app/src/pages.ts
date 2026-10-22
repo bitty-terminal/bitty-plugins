@@ -258,7 +258,7 @@ export function createPage(): Page {
         el(
           "code",
           {},
-          'id = "yourhandle.your-plugin"\nname = "Your Plugin"\nrepository = "https://github.com/you/your-plugin"\nlicense = "MIT"\n\n[compatibility]\nbitty = ">=0.5,<1.0"',
+          'id = "yourhandle.your-plugin"\nname = "Your Plugin"\nrepository = "https://github.com/you/your-plugin"\nlicense = "MIT"\n\n[compatibility]\nbitty = ">=0.5"',
         ),
       ),
     ),

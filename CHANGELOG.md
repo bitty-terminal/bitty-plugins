@@ -12,8 +12,8 @@ and this project adheres to
 
 - Complete the official registry for the 0.0.26 host: add
   `bitty-featured.devtools` with a pinned `plugins/devtools` submodule and
-  compat `>=0.0.21,<1.0`, and restore `bitty-terminal.statusline` so the
-  package stays discoverable. The statusline manifest declares
+  minimum-only compat `>=0.0.21`, and restore `bitty-terminal.statusline` so
+  the package stays discoverable. The statusline manifest declares
   `>=0.1,<1.0`, so the entry is listed but **not installable on 0.0.26**; the
   host rejects the range and fails closed instead of activating a partial
   package.
@@ -68,6 +68,16 @@ and this project adheres to
   counted warning instead of silently skipped.
 
 ### Changed
+
+- Official plugin pins move to minimum-only host compatibility (bitty#2462):
+  all 11 `plugins/<name>` gitlinks now point at their repositories' merged
+  compat-minimum `main` commits, each `registry/official/<name>.toml` records
+  the new `manifest_hash` and a `compatibility.bitty` floor with no upper
+  bound (for example `>=0.0.24`), and `generated/registry.json` is
+  regenerated. `scripts/semver.ts` gains `minimumOnlyRangeProblem`, and
+  `registry-validate`/`registry-generate` now fail on any reintroduced ceiling
+  in `compatibility.bitty` (`<`, `<=`, `=`, caret, tilde, or an exact
+  version); the `sdk` range keeps its own upper bound.
 
 - Repository metadata baseline: [CONTRIBUTING.md](CONTRIBUTING.md) documents the
   delivery lifecycle and the contributor-branch convention

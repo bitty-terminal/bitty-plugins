@@ -60,7 +60,7 @@ SDK and template implementations (their own repositories).
   [Retired and removed plugins](#retired-and-removed-plugins));
   `bitty-terminal/statusline` is archived and its entry and pin are removed
   until the repository is writable again (#110). `bitty-featured.devtools` is
-  registered and pinned from its mainline (`>=0.0.21,<1.0`).
+  registered and pinned from its mainline (minimum-only `>=0.0.21`).
   `bitty-terminal/beacon` has neither a checkout nor an entry: it is a
   service/daemon without a `bitty-plugin.toml`, so creation and registration
   stay blocked on contract readiness (#64; TODO "Ecosystem").
@@ -167,9 +167,15 @@ license = "MIT" # optional
 # signer = "bitty-terminal" # optional key id or identity
 
 [compatibility]
-bitty = ">=0.5,<1.0" # optional application range
+bitty = ">=0.5" # optional application floor; minimum-only, no upper bound
 sdk = "^0.1" # optional plugin API range (manifest `compat.plugin-api`)
 ```
+
+Host compatibility is minimum-only (bitty#2462): `compatibility.bitty` declares
+the oldest host the plugin runs on and no ceiling, so a newer host is admitted
+instead of being rejected before it can run the plugin. Validation rejects any
+range whose comparators are not lower bounds (`<`, `<=`, `=`, caret, tilde, or a
+bare exact version); the plugin API range `sdk` keeps its own upper bound.
 
 - Derived metadata (version, stars, dates, download counts) is **never**
   duplicated in registry files. `scripts/sync-metadata.ts` reads each plugin
@@ -225,6 +231,12 @@ comparator shapes (for example `>>>`), empty `,` branches, wildcard `*`,
 `||` disjunction, ranges over the 128-byte budget shared with the host
 resolver, hyphen ranges, and build metadata. Nonsense therefore fails at
 validation instead of reaching the generated index.
+
+A second, direction-only predicate (`minimumOnlyRangeProblem`, also in
+`scripts/semver.ts`) enforces the minimum-only host contract for
+`compatibility.bitty`: every comparator must be a lower bound (`>=`/`>`),
+because a ceiling rejects future hosts. This is a hard error, so a reintroduced
+upper bound cannot reach the generated index.
 
 #### Empirical grammar comparison (CTX-0016)
 

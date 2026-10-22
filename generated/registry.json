@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-22T04:51:15Z",
+  "generated_at": "2026-10-22T07:42:09Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -21,10 +21,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.0.24,<0.1",
+        "bitty": ">=0.0.24",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:9c09872baf20c42770e9781136730c4e1ca27e9efe264e35b6b8ebbca649ec93",
+      "manifest_hash": "sha256:21ba1eb35b7a867f1bdb33efaa10237005041381cc6f966347cf712021281045",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/activity/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/activity",
@@ -54,10 +54,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.0.21,<1.0",
+        "bitty": ">=0.0.21",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:babf1de7ea38088d0b229514fac7053b7dc8b63306ab2a7f99d83407f1f5e9af",
+      "manifest_hash": "sha256:a8c4755f02254e0f8c085755279f5b25951e55b02423730afe0f85ae02678f26",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/devtools/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/devtools",
@@ -87,10 +87,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.0.24,<0.1",
+        "bitty": ">=0.0.24",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:fb91eecff14294563b815c5e195c2d76d85b042aeb572914fdf8f0333ff1d77c",
+      "manifest_hash": "sha256:651cd54d78f0f85d8db5faf745fa12b10f4a12703029b7d8646140816535c0c8",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/bar/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/bar",
@@ -120,10 +120,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.0.21,<0.1",
+        "bitty": ">=0.0.21",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:32e2672cd5742616cd07d55e3eb8abd9c1eb9824c57c2c7b305f89fe4aed2c8d",
+      "manifest_hash": "sha256:c9cf16a18f538ad02e5addef0cc0443d49cc6dc2df43d7f0588798951b861a33",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/composer/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/composer",
@@ -153,10 +153,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.0.24,<0.1",
+        "bitty": ">=0.0.24",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:d1b4bfc522b827e2312188c1dffbc1334a1907b90af29b578eb42ab8f77e7c64",
+      "manifest_hash": "sha256:2c6d732acc465b3a4bbd87b123ecb927bcf43f3acd742f1db8704068536c678e",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/copy-mode/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/copy-mode",
@@ -187,10 +187,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.0.26,<0.1",
+        "bitty": ">=0.0.26",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:1a7dd220ef1a3152ef8fd5dcfacd87100805298a6ffae1939239ed866815597f"
+      "manifest_hash": "sha256:ff9a2e6ea3538bf9af079d0095342b96ab2000632cbdd4ae723a9e31efdb7408"
     },
     {
       "id": "bitty-terminal.file-manager",
@@ -212,10 +212,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.0.24,<0.1",
+        "bitty": ">=0.0.24",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:561801482d1d48cceab736d88936c5584cc57ae26ea8efc7809fbaa7581d459a",
+      "manifest_hash": "sha256:b26f36ecbe7ce5b3fb0338c90c594f98a104de021a9b7eab4b6b6af8645fa010",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/file-manager/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/file-manager",
@@ -247,10 +247,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.0.24,<0.1",
+        "bitty": ">=0.0.24",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:0ecd711c566742305ff6b6d24bb28838270c6bda307f2f741fb525f76c1b78e7",
+      "manifest_hash": "sha256:2d4ebbe92f3acb5ffa87dee15d81c75f5e1ef889940c504cad6f8a7533d1effe",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/git-panel/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/git-panel",
@@ -280,10 +280,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.0.24,<0.1",
+        "bitty": ">=0.0.24",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:f4263dd2af80e8f252b86ca2b2c9a052ced87fa646675d6cac3596e3cde333c5",
+      "manifest_hash": "sha256:ccb50517bcf03b606df5e0e7deff8be3407f8e3bd6712ead23552c5c02e7ab66",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/history/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/history",
@@ -313,10 +313,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.0.24,<0.1",
+        "bitty": ">=0.0.24",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:fa679b873524fe7c0fdd1ee3e8851ec9fc5ae29ee3244f27b0908ea63592094c",
+      "manifest_hash": "sha256:291bfcd222ff0d6cfc4acfb2fc4f27a2e6f2bd993e777262ad5d2f14b7c1b884",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/palette/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/palette",
@@ -346,10 +346,10 @@
       ],
       "license": "MIT",
       "compatibility": {
-        "bitty": ">=0.0.24,<0.1",
+        "bitty": ">=0.0.24",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:0e9203fcd2371db170199173515d07ee7a3aa22f1c805d4d2f213abb73e25a09",
+      "manifest_hash": "sha256:3d7b30a89a52feda58810a2c5071792a7af78380e6c8f7cf45c3199df5110e8d",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/search/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/search",

@@ -10,6 +10,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import {
   VERSION_RANGE_SYNTAX,
+  minimumOnlyRangeProblem,
   resolverRangeProblem,
   versionRangeProblem,
 } from "./semver.ts";
@@ -529,6 +530,14 @@ export function validateEntry(
           file,
           message: `\`compatibility.${key}\` range "${range}" is not accepted by the closed host resolver grammar: ${resolverProblem}; accepted for now, full alignment is pending (CTX-0016 / DEC-0008)`,
         });
+      }
+      if (key === "bitty") {
+        const ceilingProblem = minimumOnlyRangeProblem(range);
+        if (ceilingProblem !== null) {
+          error(
+            `\`compatibility.bitty\` must be minimum-only (bitty#2462): ${ceilingProblem}`,
+          );
+        }
       }
     }
   }
