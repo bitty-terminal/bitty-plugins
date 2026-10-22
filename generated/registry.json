@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-22T02:22:52Z",
+  "generated_at": "2026-10-22T04:32:54Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -357,39 +357,6 @@
         "description": "Scrollback search policy over the public history snapshot API: bounded scoped transcript queries with typed denials, untrusted labels, result navigation, and grant-gated export. Presentation state only; never mutates Terminal Truth.",
         "license": "MIT",
         "fetched_at": "2026-10-22T00:47:18Z"
-      }
-    },
-    {
-      "id": "bitty-terminal.statusline",
-      "name": "Statusline",
-      "kind": "plugin",
-      "repository": "https://github.com/bitty-terminal/statusline",
-      "official": true,
-      "signature_status": "unsigned",
-      "author": "bitty-terminal",
-      "description": "Cwd, mode, Git, and task presentation composed from declarative statusline fragments.",
-      "tags": [
-        "cwd",
-        "shell",
-        "status-bar",
-        "statusline"
-      ],
-      "categories": [
-        "productivity"
-      ],
-      "license": "MIT",
-      "compatibility": {
-        "bitty": ">=0.1,<1.0",
-        "sdk": "^1.0"
-      },
-      "manifest_hash": "sha256:affe52a608efd42d1694be5c76a83e5c73070196a7a2cdca5405cdc6c36b7598",
-      "metadata": {
-        "source": "https://raw.githubusercontent.com/bitty-terminal/statusline/HEAD/bitty-plugin.toml",
-        "repository_source": "https://github.com/bitty-terminal/statusline",
-        "version": "0.0.1",
-        "description": "Cwd, mode, Git and task presentation via status-component composition",
-        "license": "MIT",
-        "fetched_at": "2026-10-22T01:44:34Z"
       }
     }
   ]
