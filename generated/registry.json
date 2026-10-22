@@ -57,7 +57,15 @@
         "bitty": ">=0.0.21,<1.0",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:d21742394bc7b52dd53bb5305a3f5e626f7371e8ea5dc1215b42e7d067682fc0"
+      "manifest_hash": "sha256:d21742394bc7b52dd53bb5305a3f5e626f7371e8ea5dc1215b42e7d067682fc0",
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/devtools/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/devtools",
+        "version": "0.1.0",
+        "description": "Read-only inspection and event tracing of the Bitty plugin runtime.",
+        "license": "MIT",
+        "fetched_at": "2026-10-22T01:44:31Z"
+      }
     },
     {
       "id": "bitty-terminal.bar",
@@ -348,7 +356,15 @@
         "bitty": ">=0.1,<1.0",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:affe52a608efd42d1694be5c76a83e5c73070196a7a2cdca5405cdc6c36b7598"
+      "manifest_hash": "sha256:affe52a608efd42d1694be5c76a83e5c73070196a7a2cdca5405cdc6c36b7598",
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/statusline/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/statusline",
+        "version": "0.0.1",
+        "description": "Cwd, mode, Git and task presentation via status-component composition",
+        "license": "MIT",
+        "fetched_at": "2026-10-22T01:44:34Z"
+      }
     }
   ]
 }
