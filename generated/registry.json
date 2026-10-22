@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-19T08:48:03Z",
+  "generated_at": "2026-10-22T00:47:11Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -27,10 +27,11 @@
       "manifest_hash": "sha256:c3eafddd0aff0b3cb1f992806b892a08305e4420f90648f3e1087ca25af664eb",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/activity/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/activity",
         "version": "0.0.1",
         "description": "Privacy-first local activity timeline plugin for the Bitty terminal.",
         "license": "MIT",
-        "fetched_at": "2026-09-15T05:41:03Z"
+        "fetched_at": "2026-10-22T00:47:13Z"
       }
     },
     {
@@ -56,7 +57,15 @@
         "bitty": ">=0.0.24,<0.1",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:316ec9d691975a40e03ab9e68eeae18f53e2543d75f1786506280428a27aa7e1"
+      "manifest_hash": "sha256:fb91eecff14294563b815c5e195c2d76d85b042aeb572914fdf8f0333ff1d77c",
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/bar/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/bar",
+        "version": "0.0.1",
+        "description": "Consolidated workspace-bar, tabs, and statusline presentation over generic chrome insets.",
+        "license": "MIT",
+        "fetched_at": "2026-10-22T00:47:14Z"
+      }
     },
     {
       "id": "bitty-terminal.composer",
@@ -81,7 +90,15 @@
         "bitty": ">=0.0.21,<0.1",
         "sdk": "^0.1"
       },
-      "manifest_hash": "sha256:32e2672cd5742616cd07d55e3eb8abd9c1eb9824c57c2c7b305f89fe4aed2c8d"
+      "manifest_hash": "sha256:32e2672cd5742616cd07d55e3eb8abd9c1eb9824c57c2c7b305f89fe4aed2c8d",
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/composer/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/composer",
+        "version": "0.0.1",
+        "description": "Editable command-line policy over the public overlay, submit, and editor host APIs: modal buffer, chord routing, bounded paste, and external-editor round trip. Presentation state only; never mutates Terminal Truth.",
+        "license": "MIT",
+        "fetched_at": "2026-10-22T00:47:15Z"
+      }
     },
     {
       "id": "bitty-terminal.copy-mode",
@@ -106,7 +123,15 @@
         "bitty": ">=0.0.24,<0.1",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:d1b4bfc522b827e2312188c1dffbc1334a1907b90af29b578eb42ab8f77e7c64"
+      "manifest_hash": "sha256:d1b4bfc522b827e2312188c1dffbc1334a1907b90af29b578eb42ab8f77e7c64",
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/copy-mode/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/copy-mode",
+        "version": "0.0.1",
+        "description": "Modal visual-selection policy over the public history snapshot API: bounded scoped transcript queries with typed denials, untrusted labels, anchor/cursor selection over the cached page, and grant-gated yank. Presentation state only; never mutates Terminal Truth.",
+        "license": "MIT",
+        "fetched_at": "2026-10-22T00:47:16Z"
+      }
     },
     {
       "id": "bitty-terminal.file-manager",
@@ -133,12 +158,12 @@
       },
       "manifest_hash": "sha256:9c0f5161809fa25beff381ea984d6b5102f98c91718953a287a3be05ccdb62d6",
       "metadata": {
-        "source": "https://raw.githubusercontent.com/bitty-terminal/file-manager/bf3a17ea6aa1ea0fcc3a45a13ceaa069e83b71d4/bitty-plugin.toml",
+        "source": "https://raw.githubusercontent.com/bitty-terminal/file-manager/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/file-manager",
         "version": "0.1.0",
-        "description": "File manager listing, navigation, and preview with terminal observation only, bounded 8KiB payload",
+        "description": "Bounded read-only directory listing, navigation, and preview over the observed cwd",
         "license": "MIT",
-        "fetched_at": "2026-10-17T14:13:35Z"
+        "fetched_at": "2026-10-22T00:47:16Z"
       }
     },
     {
@@ -169,10 +194,11 @@
       "manifest_hash": "sha256:3c54e6e9f21c2b2882eee7784fda2734ef61af6242c064940403713d0d248f8c",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/git-panel/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/git-panel",
         "version": "0.1.0",
         "description": "Tiled Panel git branch/status/diff/log via process.spawn:git allowlisted [tools.git] bounded 8KiB/32/64 PR-1..12",
         "license": "MIT",
-        "fetched_at": "2026-09-15T05:41:04Z"
+        "fetched_at": "2026-10-22T00:47:17Z"
       }
     },
     {
@@ -198,7 +224,15 @@
         "bitty": ">=0.0.24,<0.1",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:f4263dd2af80e8f252b86ca2b2c9a052ced87fa646675d6cac3596e3cde333c5"
+      "manifest_hash": "sha256:f4263dd2af80e8f252b86ca2b2c9a052ced87fa646675d6cac3596e3cde333c5",
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/history/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/history",
+        "version": "0.0.1",
+        "description": "Opt-in history policy over the public history-read host APIs: scoped bounded snapshot queries over transcript, commands, and own KV with redacted truncated attributed answers or typed denials. Never streams, never touches session snapshots.",
+        "license": "MIT",
+        "fetched_at": "2026-10-22T00:47:17Z"
+      }
     },
     {
       "id": "bitty-terminal.palette",
@@ -226,10 +260,11 @@
       "manifest_hash": "sha256:fa679b873524fe7c0fdd1ee3e8851ec9fc5ae29ee3244f27b0908ea63592094c",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/palette/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/palette",
         "version": "0.0.1",
         "description": "Command palette and picker UI via overlay slot, declarative primitives only",
         "license": "MIT",
-        "fetched_at": "2026-09-15T05:41:04Z"
+        "fetched_at": "2026-10-22T00:47:18Z"
       }
     },
     {
@@ -255,7 +290,15 @@
         "bitty": ">=0.0.24,<0.1",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:0e9203fcd2371db170199173515d07ee7a3aa22f1c805d4d2f213abb73e25a09"
+      "manifest_hash": "sha256:0e9203fcd2371db170199173515d07ee7a3aa22f1c805d4d2f213abb73e25a09",
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/search/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/search",
+        "version": "0.0.1",
+        "description": "Scrollback search policy over the public history snapshot API: bounded scoped transcript queries with typed denials, untrusted labels, result navigation, and grant-gated export. Presentation state only; never mutates Terminal Truth.",
+        "license": "MIT",
+        "fetched_at": "2026-10-22T00:47:18Z"
+      }
     }
   ]
 }
