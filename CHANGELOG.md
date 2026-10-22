@@ -125,6 +125,15 @@ and this project adheres to
 
 ### Removed
 
+- `bitty-terminal.statusline` removed from the official registry and the
+  `plugins/` known-good set on 2026-10-22. The repository is archived and
+  rejects pushes with `403`, so the prepared compat fix
+  (`cmd/hygiene-0026`) cannot land and the pin cannot be maintained. The
+  registry entry and the `plugins/statusline` submodule pin are deleted,
+  [`generated/registry.json`](generated/registry.json) is regenerated with 11
+  entries, and re-adding the plugin is tracked in
+  [#110](https://github.com/bitty-terminal/bitty-plugins/issues/110).
+
 - `bitty-terminal.wheel` removed from the official registry and the
   `plugins/` known-good set on owner decision (2026-10-19). The repository is
   the Agent Harness, not a scroll plugin, so it is not a valid official
