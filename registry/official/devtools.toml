@@ -19,7 +19,7 @@ description = "Read-only inspection and event tracing of the Bitty plugin runtim
 tags = ["devtools", "debugging", "tracing", "inspection"]
 categories = ["developer-tools"]
 license = "MIT"
-manifest_hash = "sha256:d21742394bc7b52dd53bb5305a3f5e626f7371e8ea5dc1215b42e7d067682fc0"
+manifest_hash = "sha256:babf1de7ea38088d0b229514fac7053b7dc8b63306ab2a7f99d83407f1f5e9af"
 
 [compatibility]
 # Mirrors the pinned manifest (plugins/devtools declares compat.bitty

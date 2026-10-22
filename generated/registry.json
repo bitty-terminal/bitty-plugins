@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-22T04:32:54Z",
+  "generated_at": "2026-10-22T04:51:15Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -57,7 +57,7 @@
         "bitty": ">=0.0.21,<1.0",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:d21742394bc7b52dd53bb5305a3f5e626f7371e8ea5dc1215b42e7d067682fc0",
+      "manifest_hash": "sha256:babf1de7ea38088d0b229514fac7053b7dc8b63306ab2a7f99d83407f1f5e9af",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/devtools/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/devtools",
@@ -200,7 +200,7 @@
       "official": true,
       "signature_status": "unsigned",
       "author": "bitty-terminal",
-      "description": "Bounded read-only directory listing, navigation, and preview over the observed cwd.",
+      "description": "Bounded read-only directory listing, navigation, and preview for a caller-chosen root.",
       "tags": [
         "file-manager",
         "files",
@@ -215,7 +215,7 @@
         "bitty": ">=0.0.24,<0.1",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:ad29971a060a145e15c0799be806274cb58b5b1cf2f27809052254fdfdcb629f",
+      "manifest_hash": "sha256:561801482d1d48cceab736d88936c5584cc57ae26ea8efc7809fbaa7581d459a",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/file-manager/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/file-manager",
@@ -233,7 +233,7 @@
       "official": true,
       "signature_status": "unsigned",
       "author": "bitty-terminal",
-      "description": "Tiled Panel git branch/status/diff/log via process.spawn:git allowlisted [tools.git] bounded 8KiB/32/64 PR-1..12.",
+      "description": "Read-only branch, status, diff, and log panel for the Git repository behind the focused pane.",
       "tags": [
         "diff",
         "git",
@@ -250,7 +250,7 @@
         "bitty": ">=0.0.24,<0.1",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:3c54e6e9f21c2b2882eee7784fda2734ef61af6242c064940403713d0d248f8c",
+      "manifest_hash": "sha256:0ecd711c566742305ff6b6d24bb28838270c6bda307f2f741fb525f76c1b78e7",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/git-panel/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/git-panel",
