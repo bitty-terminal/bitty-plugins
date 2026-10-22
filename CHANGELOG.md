@@ -10,6 +10,14 @@ and this project adheres to
 
 ### Added
 
+- Complete the official registry for the 0.0.26 host: add
+  `bitty-featured.devtools` with a pinned `plugins/devtools` submodule and
+  compat `>=0.0.21,<1.0`, and restore `bitty-terminal.statusline` so the
+  package stays discoverable. The statusline manifest declares
+  `>=0.1,<1.0`, so the entry is listed but **not installable on 0.0.26**; the
+  host rejects the range and fails closed instead of activating a partial
+  package.
+
 - Official `manifest_hash` values for all five registry entries (Phase 1,
   advisory). Each entry records `sha256:<hex>` of the owning repository's
   `bitty-plugin.toml` at the pinned submodule revision, so the index binds each
@@ -126,6 +134,14 @@ and this project adheres to
   remains available but is not an official plugin.
 
 ### Fixed
+
+- Correct official entry drift against the current plugin mainlines: composer
+  `compatibility.sdk` now mirrors the manifest `compat.plugin-api` `^1.0`
+  instead of the stale `^0.1`, and file-manager's description now matches its
+  current read-only cwd-scoped listing behavior instead of the former
+  root-parameterized 8 KiB payload wording. History and search descriptions
+  were aligned with their manifest summaries. Every official submodule pin and
+  `manifest_hash` was refreshed to the current mainline.
 
 - `integration-smoke` installs per-plugin dependencies before running each
   plugin's `check` gate: when a `plugins/*/` checkout has a justfile and a

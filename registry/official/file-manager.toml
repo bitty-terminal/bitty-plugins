@@ -15,11 +15,11 @@ name = "File Manager"
 repository = "https://github.com/bitty-terminal/file-manager"
 kind = "plugin"
 author = "bitty-terminal"
-description = "File listing, navigation, and preview over a root-parameterized scope; observation-only (terminal.semantic-read) with a bounded 8KiB payload."
+description = "Bounded read-only directory listing, navigation, and preview over the observed cwd."
 tags = ["files", "file-manager", "navigation", "preview"]
 categories = ["productivity"]
 license = "MIT"
-manifest_hash = "sha256:9c0f5161809fa25beff381ea984d6b5102f98c91718953a287a3be05ccdb62d6"
+manifest_hash = "sha256:ad29971a060a145e15c0799be806274cb58b5b1cf2f27809052254fdfdcb629f"
 
 [compatibility]
 bitty = ">=0.0.24,<0.1"

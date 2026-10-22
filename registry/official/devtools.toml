@@ -1,0 +1,28 @@
+# Official registry entry: Bitty DevTools.
+#
+# Hand-maintained identity data only. Derived metadata (version, stars, dates,
+# downloads) is intentionally absent; `just registry-sync` mirrors the plugin's
+# bitty-plugin.toml into the optional `metadata` object of the generated index.
+#
+# Integrity (Phase 1, advisory): `manifest_hash` is the sha256 digest (H-A: raw
+# bytes) of the owning repository's `bitty-plugin.toml` at the pinned submodule
+# revision recorded by `git ls-tree HEAD plugins/devtools`. This is a digest
+# over fetched transport bytes (H-A), not semantic canonical hashing (H-B).
+# Refresh it when the pin moves (see README "Registry model" refresh procedure).
+
+id = "bitty-featured.devtools"
+name = "Bitty DevTools"
+repository = "https://github.com/bitty-terminal/devtools"
+kind = "plugin"
+author = "bitty-terminal"
+description = "Read-only inspection and event tracing of the Bitty plugin runtime."
+tags = ["devtools", "debugging", "tracing", "inspection"]
+categories = ["developer-tools"]
+license = "MIT"
+manifest_hash = "sha256:d21742394bc7b52dd53bb5305a3f5e626f7371e8ea5dc1215b42e7d067682fc0"
+
+[compatibility]
+# Mirrors the pinned manifest (plugins/devtools declares compat.bitty
+# ">=0.0.21,<1.0" and compat.plugin-api "^1.0").
+bitty = ">=0.0.21,<1.0"
+sdk = "^1.0"
