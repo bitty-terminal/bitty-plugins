@@ -19,8 +19,8 @@ description = "Scrollback search policy over the public history snapshot API: bo
 tags = ["search", "scrollback", "transcript", "history"]
 categories = ["productivity"]
 license = "MIT"
-manifest_hash = "sha256:0e9203fcd2371db170199173515d07ee7a3aa22f1c805d4d2f213abb73e25a09"
+manifest_hash = "sha256:3d7b30a89a52feda58810a2c5071792a7af78380e6c8f7cf45c3199df5110e8d"
 
 [compatibility]
-bitty = ">=0.0.24,<0.1"
+bitty = ">=0.0.24"
 sdk = "^1.0"

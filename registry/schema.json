@@ -109,7 +109,7 @@
       "properties": {
         "bitty": {
           "type": "string",
-          "description": "Bitty application range, for example \">=0.5,<1.0\".",
+          "description": "Bitty application floor (minimum-only, no upper bound), for example \">=0.5\".",
           "maxLength": 64
         },
         "sdk": {

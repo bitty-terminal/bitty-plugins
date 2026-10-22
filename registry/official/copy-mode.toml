@@ -19,8 +19,8 @@ description = "Modal visual selection over the public history snapshot API: boun
 tags = ["copy-mode", "selection", "clipboard", "transcript"]
 categories = ["productivity"]
 license = "MIT"
-manifest_hash = "sha256:d1b4bfc522b827e2312188c1dffbc1334a1907b90af29b578eb42ab8f77e7c64"
+manifest_hash = "sha256:2c6d732acc465b3a4bbd87b123ecb927bcf43f3acd742f1db8704068536c678e"
 
 [compatibility]
-bitty = ">=0.0.24,<0.1"
+bitty = ">=0.0.24"
 sdk = "^1.0"

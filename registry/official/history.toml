@@ -19,8 +19,8 @@ description = "Opt-in history policy over the public history-read host APIs: sco
 tags = ["history", "transcript", "commands", "kv"]
 categories = ["productivity"]
 license = "MIT"
-manifest_hash = "sha256:f4263dd2af80e8f252b86ca2b2c9a052ced87fa646675d6cac3596e3cde333c5"
+manifest_hash = "sha256:ccb50517bcf03b606df5e0e7deff8be3407f8e3bd6712ead23552c5c02e7ab66"
 
 [compatibility]
-bitty = ">=0.0.24,<0.1"
+bitty = ">=0.0.24"
 sdk = "^1.0"
