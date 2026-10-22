@@ -7,6 +7,9 @@
 [submodule "plugins/activity"]
 	path = plugins/activity
 	url = https://github.com/bitty-terminal/activity
+[submodule "plugins/devtools"]
+	path = plugins/devtools
+	url = https://github.com/bitty-terminal/devtools
 [submodule "docs"]
 	path = docs
 	url = https://github.com/bitty-terminal/bitty-plugins-docs

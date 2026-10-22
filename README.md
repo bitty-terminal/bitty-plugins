@@ -27,16 +27,16 @@ behavior. Do not describe the store or CLI as shipped product behavior.
 
 ## What this repository owns
 
-| Path         | Responsibility                                                                                                                                                      |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `registry/`  | Machine-readable registry entries (official and community), plus the entry schema.                                                                                  |
-| `generated/` | Built artifacts consumed by downstream clients; only `registry.json` today.                                                                                         |
-| `app/`       | Static store frontend (Vite + TypeScript, vanilla DOM / Web Components, no framework).                                                                              |
-| `plugins/`   | 9 official maintained plugins as pinned Git submodules (known-good set); the retired `statusline` checkout is retained only for legacy provenance and has no entry. |
-| `sdk/`       | Submodule: [bitty-plugin-sdk](https://github.com/bitty-terminal/bitty-plugin-sdk).                                                                                  |
-| `template/`  | Submodule: [bitty-plugin-template](https://github.com/bitty-terminal/bitty-plugin-template).                                                                        |
-| `docs/`      | Submodule: [bitty-plugins-docs](https://github.com/bitty-terminal/bitty-plugins-docs) — canonical plugin-ecosystem documentation.                                   |
-| `scripts/`   | Registry validation, index generation, and metadata synchronization.                                                                                                |
+| Path         | Responsibility                                                                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `registry/`  | Machine-readable registry entries (official and community), plus the entry schema.                                                                   |
+| `generated/` | Built artifacts consumed by downstream clients; only `registry.json` today.                                                                          |
+| `app/`       | Static store frontend (Vite + TypeScript, vanilla DOM / Web Components, no framework).                                                               |
+| `plugins/`   | 11 official maintained plugins as pinned Git submodules (known-good set); includes `statusline` (listed, not installable before 0.1) and `devtools`. |
+| `sdk/`       | Submodule: [bitty-plugin-sdk](https://github.com/bitty-terminal/bitty-plugin-sdk).                                                                   |
+| `template/`  | Submodule: [bitty-plugin-template](https://github.com/bitty-terminal/bitty-plugin-template).                                                         |
+| `docs/`      | Submodule: [bitty-plugins-docs](https://github.com/bitty-terminal/bitty-plugins-docs) — canonical plugin-ecosystem documentation.                    |
+| `scripts/`   | Registry validation, index generation, and metadata synchronization.                                                                                 |
 
 This repository does **not** own the terminal core or plugin host (`bitty`),
 canonical specification text (shared governance in `bitty-docs`; the
@@ -45,22 +45,26 @@ SDK and template implementations (their own repositories).
 
 ## Official versus community boundary (fixed)
 
-- **Official plugins (9)** live in `plugins/` as pinned submodules. An update
+- **Official plugins (11)** live in `plugins/` as pinned submodules. An update
   is a submodule pointer bump reviewed like any other change; the directory is
-  the known-good set maintained by `bitty-terminal`. The 9 registry entries
+  the known-good set maintained by `bitty-terminal`. The 11 registry entries
   under `registry/official/` and in `generated/registry.json` are:
-  `bitty-featured.activity`, `bitty-terminal.bar`,
-  `bitty-terminal.composer`, `bitty-terminal.copy-mode`,
-  `bitty-terminal.file-manager`, `bitty-terminal.git-panel`,
-  `bitty-terminal.history`, `bitty-terminal.palette`,
-  `bitty-terminal.search`.
-  `bitty-terminal.bar` is the active replacement for the retired `statusline`
-  concept (see [Retired and removed plugins](#retired-and-removed-plugins)).
-  `bitty-featured.devtools` has no registry entry yet: its checkout exists
-  only as an unpinned local clone (no `plugins/devtools` submodule, no
-  onboarding review), so the pre-0.0.22 headless gate records it as excluded
-  pending an onboarding decision (#77). `bitty-terminal/beacon` has neither a
-  checkout nor an entry: creation and registration stay blocked on contract
+  `bitty-featured.activity`, `bitty-featured.devtools`,
+  `bitty-terminal.bar`, `bitty-terminal.composer`,
+  `bitty-terminal.copy-mode`, `bitty-terminal.file-manager`,
+  `bitty-terminal.git-panel`, `bitty-terminal.history`,
+  `bitty-terminal.palette`, `bitty-terminal.search`, and
+  `bitty-terminal.statusline`.
+  `bitty-terminal.bar` remains the active replacement for the retired
+  `statusline` presentation concept (see
+  [Retired and removed plugins](#retired-and-removed-plugins)); the
+  `statusline` package is listed so its identity and manifest stay
+  discoverable, and its `>=0.1,<1.0` floor means it is **not installable on
+  0.0.26** — the host rejects the range and fails closed with an
+  incompatibility diagnostic. `bitty-featured.devtools` is registered and
+  pinned from its mainline (`>=0.0.21,<1.0`). `bitty-terminal/beacon` has
+  neither a checkout nor an entry: it is a service/daemon without a
+  `bitty-plugin.toml`, so creation and registration stay blocked on contract
   readiness (#64; TODO "Ecosystem").
 - **Community plugins are never submodules.** They live only as registry
   entries at `registry/community/<author>-<slug>.toml`, one file per plugin, in
@@ -75,10 +79,10 @@ SDK and template implementations (their own repositories).
 
 ### Retired and removed plugins
 
-| Plugin                      | Status                | Record                                                                                                                                                                                                                                                                           |
-| --------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bitty-terminal.statusline` | Retired before 0.0.24 | Superseded by `bitty-terminal.bar`; the registry entry was removed in #68/#69 and the checkout remains only for legacy provenance.                                                                                                                                               |
-| `bitty-terminal.wheel`      | Removed 2026-10-19    | Owner decision: the repository is the Agent Harness, not a scroll plugin, so it is not a valid official extension. The entry and the `plugins/wheel` pin are removed; [the repository](https://github.com/bitty-terminal/wheel) remains available but is not an official plugin. |
+| Plugin                      | Status               | Record                                                                                                                                                                                                                                                                           |
+| --------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bitty-terminal.statusline` | Re-listed 2026-10-22 | Superseded by `bitty-terminal.bar` for the statusline presentation (DEC-W104-3); the entry was removed in #68/#69 and restored so the package stays discoverable. Its `>=0.1,<1.0` manifest floor keeps it non-installable on 0.0.26.                                            |
+| `bitty-terminal.wheel`      | Removed 2026-10-19   | Owner decision: the repository is the Agent Harness, not a scroll plugin, so it is not a valid official extension. The entry and the `plugins/wheel` pin are removed; [the repository](https://github.com/bitty-terminal/wheel) remains available but is not an official plugin. |
 
 Removals follow the maintenance rule in the
 [official plugin onboarding policy](https://github.com/bitty-terminal/bitty-plugins-docs/blob/main/product/official-plugin-onboarding.md):

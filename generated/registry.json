@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-22T00:47:11Z",
+  "generated_at": "2026-10-22T01:39:14Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -24,7 +24,7 @@
         "bitty": ">=0.0.24,<0.1",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:c3eafddd0aff0b3cb1f992806b892a08305e4420f90648f3e1087ca25af664eb",
+      "manifest_hash": "sha256:9c09872baf20c42770e9781136730c4e1ca27e9efe264e35b6b8ebbca649ec93",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/activity/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/activity",
@@ -32,6 +32,39 @@
         "description": "Privacy-first local activity timeline plugin for the Bitty terminal.",
         "license": "MIT",
         "fetched_at": "2026-10-22T00:47:13Z"
+      }
+    },
+    {
+      "id": "bitty-featured.devtools",
+      "name": "Bitty DevTools",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/devtools",
+      "official": true,
+      "signature_status": "unsigned",
+      "author": "bitty-terminal",
+      "description": "Read-only inspection and event tracing of the Bitty plugin runtime.",
+      "tags": [
+        "debugging",
+        "devtools",
+        "inspection",
+        "tracing"
+      ],
+      "categories": [
+        "developer-tools"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.0.21,<1.0",
+        "sdk": "^1.0"
+      },
+      "manifest_hash": "sha256:d21742394bc7b52dd53bb5305a3f5e626f7371e8ea5dc1215b42e7d067682fc0",
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/devtools/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/devtools",
+        "version": "0.1.0",
+        "description": "Read-only inspection and event tracing of the Bitty plugin runtime.",
+        "license": "MIT",
+        "fetched_at": "2026-10-22T01:44:31Z"
       }
     },
     {
@@ -88,7 +121,7 @@
       "license": "MIT",
       "compatibility": {
         "bitty": ">=0.0.21,<0.1",
-        "sdk": "^0.1"
+        "sdk": "^1.0"
       },
       "manifest_hash": "sha256:32e2672cd5742616cd07d55e3eb8abd9c1eb9824c57c2c7b305f89fe4aed2c8d",
       "metadata": {
@@ -141,7 +174,7 @@
       "official": true,
       "signature_status": "unsigned",
       "author": "bitty-terminal",
-      "description": "File listing, navigation, and preview over a root-parameterized scope; observation-only (terminal.semantic-read) with a bounded 8KiB payload.",
+      "description": "Bounded read-only directory listing, navigation, and preview over the observed cwd.",
       "tags": [
         "file-manager",
         "files",
@@ -156,7 +189,7 @@
         "bitty": ">=0.0.24,<0.1",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:9c0f5161809fa25beff381ea984d6b5102f98c91718953a287a3be05ccdb62d6",
+      "manifest_hash": "sha256:ad29971a060a145e15c0799be806274cb58b5b1cf2f27809052254fdfdcb629f",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/file-manager/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/file-manager",
@@ -209,7 +242,7 @@
       "official": true,
       "signature_status": "unsigned",
       "author": "bitty-terminal",
-      "description": "Opt-in history reads over the public history-read host APIs: scoped bounded snapshot queries over transcript, commands, and own KV with redacted answers or typed denials.",
+      "description": "Opt-in history policy over the public history-read host APIs: scoped bounded snapshot queries over transcript, commands, and own KV with redacted truncated attributed answers or typed denials.",
       "tags": [
         "commands",
         "history",
@@ -275,7 +308,7 @@
       "official": true,
       "signature_status": "unsigned",
       "author": "bitty-terminal",
-      "description": "Scrollback search over the public history snapshot API: bounded scoped transcript queries with typed denials, untrusted labels, result navigation, and grant-gated export.",
+      "description": "Scrollback search policy over the public history snapshot API: bounded scoped transcript queries with typed denials, untrusted labels, result navigation, and grant-gated export.",
       "tags": [
         "history",
         "scrollback",
@@ -298,6 +331,39 @@
         "description": "Scrollback search policy over the public history snapshot API: bounded scoped transcript queries with typed denials, untrusted labels, result navigation, and grant-gated export. Presentation state only; never mutates Terminal Truth.",
         "license": "MIT",
         "fetched_at": "2026-10-22T00:47:18Z"
+      }
+    },
+    {
+      "id": "bitty-terminal.statusline",
+      "name": "Statusline",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/statusline",
+      "official": true,
+      "signature_status": "unsigned",
+      "author": "bitty-terminal",
+      "description": "Cwd, mode, Git, and task presentation composed from declarative statusline fragments.",
+      "tags": [
+        "cwd",
+        "shell",
+        "status-bar",
+        "statusline"
+      ],
+      "categories": [
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.1,<1.0",
+        "sdk": "^1.0"
+      },
+      "manifest_hash": "sha256:affe52a608efd42d1694be5c76a83e5c73070196a7a2cdca5405cdc6c36b7598",
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/statusline/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/statusline",
+        "version": "0.0.1",
+        "description": "Cwd, mode, Git and task presentation via status-component composition",
+        "license": "MIT",
+        "fetched_at": "2026-10-22T01:44:34Z"
       }
     }
   ]
