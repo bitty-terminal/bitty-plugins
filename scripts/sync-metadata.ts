@@ -17,6 +17,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   GENERATED_FILE,
+  MANIFEST_MAX_BYTES,
   REPO_ROOT,
   buildIndex,
   countSeverity,
@@ -24,6 +25,7 @@ import {
   loadEntries,
   nowUtcSeconds,
   parseRepositoryIdentity,
+  readBoundedText,
   readIndexFile,
   renderIndex,
   validateEntry,
@@ -33,15 +35,10 @@ import {
   type IndexMetadata,
 } from "./registry-lib.ts";
 
+export { MANIFEST_MAX_BYTES, readBoundedText };
+
 const FETCH_TIMEOUT_MS = 5000;
 const FETCH_BUDGET_MS = 60000;
-
-/**
- * Hard cap on a fetched manifest body, mirroring the SDK manifest validator's
- * `MANIFEST_MAX_BYTES` (256 KiB). A larger response is rejected before its
- * bytes are decoded, and the entry keeps its previous metadata.
- */
-export const MANIFEST_MAX_BYTES = 256 * 1024;
 
 const USAGE = `usage: bun scripts/sync-metadata.ts [--skip-network]
 
@@ -86,67 +83,6 @@ async function fetchText(url: string): Promise<string> {
   } finally {
     clearTimeout(timer);
   }
-}
-
-function oversizedError(limit: number, observed?: number): Error {
-  const detail = observed === undefined ? "" : ` (${observed} bytes)`;
-  return Object.assign(
-    new Error(`manifest exceeds the ${limit}-byte limit${detail}`),
-    { oversized: true },
-  );
-}
-
-/**
- * Read a response body as text while enforcing a hard byte cap.
- *
- * A `Content-Length` pre-check rejects the declared oversize before any body
- * bytes are read; otherwise the stream is consumed incrementally and aborted
- * as soon as the running total exceeds the cap, so an oversized body is never
- * fully buffered or decoded. Exceeding the cap throws an error flagged with
- * `oversized: true`.
- */
-export async function readBoundedText(
-  response: Response,
-  maxBytes: number = MANIFEST_MAX_BYTES,
-): Promise<string> {
-  const declared = response.headers.get("content-length");
-  if (declared !== null) {
-    const length = Number.parseInt(declared, 10);
-    if (Number.isFinite(length) && length > maxBytes) {
-      await response.body?.cancel();
-      throw oversizedError(maxBytes, length);
-    }
-  }
-
-  const body = response.body;
-  if (body === null) {
-    const text = await response.text();
-    const bytes = new TextEncoder().encode(text).byteLength;
-    if (bytes > maxBytes) throw oversizedError(maxBytes, bytes);
-    return text;
-  }
-
-  const reader = body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value === undefined) continue;
-    total += value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel();
-      throw oversizedError(maxBytes, total);
-    }
-    chunks.push(value);
-  }
-  const combined = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    combined.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new TextDecoder().decode(combined);
 }
 
 /** Result of reading a fetched manifest: metadata, a notice, or a hard error. */

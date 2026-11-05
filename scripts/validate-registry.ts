@@ -14,6 +14,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   REPO_ROOT,
+  MANIFEST_MAX_BYTES,
   NON_SHIPPING_PIN_EXEMPTIONS,
   PLUGIN_MANIFEST_FILE,
   checkManifestHashes,
@@ -23,9 +24,13 @@ import {
   countNetworkRepositories,
   countSeverity,
   formatDiagnostic,
+  isOversizedManifestError,
   loadEntries,
   parseGitmodules,
   planPinChecks,
+  readBoundedBytes,
+  readManifestFromCheckout,
+  readPinnedManifest,
   readSubmodulePins,
   repositoryName,
   resolveOfficialManifest,
@@ -38,7 +43,9 @@ import {
   type Diagnostic,
   type GitHubSlug,
   type LoadedEntry,
+  type LocalManifestRead,
   type ManifestHashRequest,
+  type ManifestReadResult,
   type SdkDirResolution,
   type SubmoduleEntry,
 } from "./registry-lib.ts";
@@ -459,37 +466,31 @@ async function comparePinToTipWithApi(
 }
 
 /**
- * Read the manifest bytes at a pin from an initialized submodule checkout.
- * Returns null when the submodule is absent, the pinned object is not
- * available locally, or git fails; the caller falls back to the raw URL.
+ * Read the manifest at a pin from an initialized submodule checkout. Returns
+ * null when the submodule is absent, the pinned object is not available
+ * locally, or a spawn fails; the caller falls back to the raw URL.
  */
-function readLocalManifestAtPin(name: string, pin: string): Uint8Array | null {
-  const checkout = join(REPO_ROOT, "plugins", name);
-  if (!existsSync(join(checkout, ".git"))) return null;
-  const result = Bun.spawnSync({
-    cmd: ["git", "-C", checkout, "show", `${pin}:${PLUGIN_MANIFEST_FILE}`],
-    stdout: "pipe",
-    stderr: "pipe",
-    timeout: PIN_MANIFEST_TIMEOUT_MS,
-  });
-  if (result.exitCode !== 0) return null;
-  return new Uint8Array(result.stdout);
+function readLocalManifestAtPin(name: string, pin: string): LocalManifestRead {
+  try {
+    const checkout = join(REPO_ROOT, "plugins", name);
+    if (!existsSync(join(checkout, ".git"))) return null;
+    return readManifestFromCheckout(checkout, pin);
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Read the raw manifest bytes at a pin: prefer the local submodule object,
- * then fall back to the pinned raw URL. Non-OK HTTP responses surface as
- * `httpStatus`; network failures throw so the caller can halt.
+ * Fetch the pinned raw manifest with the same 256 KiB bound as the local
+ * object read. Non-OK responses surface as `httpStatus`; an oversized body
+ * surfaces as `oversized`; other network failures throw so the caller can
+ * halt.
  */
-async function readManifestAtPin(
-  request: ManifestHashRequest,
-): Promise<{ bytes: Uint8Array } | { httpStatus: number }> {
-  const local = readLocalManifestAtPin(request.name, request.pin);
-  if (local !== null) return { bytes: local };
+async function fetchRawManifest(url: string): Promise<ManifestReadResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), PIN_MANIFEST_TIMEOUT_MS);
   try {
-    const response = await fetch(request.url, {
+    const response = await fetch(url, {
       headers: {
         "User-Agent": "bitty-plugins-registry-validate",
         Accept: "text/plain",
@@ -498,10 +499,31 @@ async function readManifestAtPin(
       signal: controller.signal,
     });
     if (!response.ok) return { httpStatus: response.status };
-    return { bytes: new Uint8Array(await response.arrayBuffer()) };
+    try {
+      return { bytes: await readBoundedBytes(response) };
+    } catch (error) {
+      if (isOversizedManifestError(error)) {
+        return { oversized: error.bytes ?? MANIFEST_MAX_BYTES + 1 };
+      }
+      throw error;
+    }
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Read the manifest at a pin, preferring the local git object and falling
+ * back to the pinned raw URL. Local failures stay local; only the fallback
+ * fetch can report a network failure to the caller.
+ */
+async function readManifestAtPin(
+  request: ManifestHashRequest,
+): Promise<ManifestReadResult> {
+  return readPinnedManifest(request, {
+    readLocal: readLocalManifestAtPin,
+    fetchRaw: fetchRawManifest,
+  });
 }
 
 /**

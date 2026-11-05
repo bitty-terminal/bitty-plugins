@@ -28,6 +28,103 @@ export const SCHEMA_VERSION = 1;
 /** Official plugin manifest file name inside a repository checkout. */
 export const PLUGIN_MANIFEST_FILE = "bitty-plugin.toml";
 
+/**
+ * Hard cap on a manifest body (256 KiB), mirroring the SDK manifest
+ * validator. A larger response or local object is rejected before its bytes
+ * are accepted.
+ */
+export const MANIFEST_MAX_BYTES = 256 * 1024;
+
+interface OversizedManifestError extends Error {
+  oversized: true;
+  bytes?: number;
+}
+
+function oversizedManifestError(
+  limit: number,
+  observed?: number,
+): OversizedManifestError {
+  const detail = observed === undefined ? "" : ` (${observed} bytes)`;
+  return Object.assign(
+    new Error(`manifest exceeds the ${limit}-byte limit${detail}`),
+    {
+      oversized: true as const,
+      bytes: observed,
+    },
+  );
+}
+
+/** True when a read failed because the manifest exceeded the byte cap. */
+export function isOversizedManifestError(
+  error: unknown,
+): error is OversizedManifestError {
+  return (
+    error instanceof Error &&
+    (error as { oversized?: unknown }).oversized === true
+  );
+}
+
+/**
+ * Read a response body as bytes while enforcing a hard byte cap.
+ *
+ * A `Content-Length` pre-check rejects the declared oversize before any body
+ * bytes are read; otherwise the stream is consumed incrementally and aborted
+ * as soon as the running total exceeds the cap. Exceeding the cap throws an
+ * error flagged with `oversized: true`.
+ */
+export async function readBoundedBytes(
+  response: Response,
+  maxBytes: number = MANIFEST_MAX_BYTES,
+): Promise<Uint8Array> {
+  const declared = response.headers.get("content-length");
+  if (declared !== null) {
+    const length = Number.parseInt(declared, 10);
+    if (Number.isFinite(length) && length > maxBytes) {
+      await response.body?.cancel();
+      throw oversizedManifestError(maxBytes, length);
+    }
+  }
+
+  const body = response.body;
+  if (body === null) {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > maxBytes) {
+      throw oversizedManifestError(maxBytes, bytes.byteLength);
+    }
+    return bytes;
+  }
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value === undefined) continue;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw oversizedManifestError(maxBytes, total);
+    }
+    chunks.push(value);
+  }
+  const combined = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return combined;
+}
+
+/** Decode a bounded response body as UTF-8 text. */
+export async function readBoundedText(
+  response: Response,
+  maxBytes: number = MANIFEST_MAX_BYTES,
+): Promise<string> {
+  return new TextDecoder().decode(await readBoundedBytes(response, maxBytes));
+}
+
 export const KINDS = [
   "plugin",
   "theme",
@@ -1469,23 +1566,76 @@ export function parseSubmodulePins(listing: string): Map<string, string> {
 }
 
 /**
+ * Run a local git command with a bounded timeout. Returns stdout bytes, or
+ * null when git exits non-zero or the spawn itself fails (missing cwd, git not
+ * on PATH, timeout); callers treat null as "cannot read locally".
+ */
+function runGit(args: string[], cwd?: string): Uint8Array | null {
+  try {
+    const result = Bun.spawnSync({
+      cmd: ["git", ...args],
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: PIN_GIT_TIMEOUT_MS,
+      ...(cwd === undefined ? {} : { cwd }),
+    });
+    if (result.exitCode !== 0) return null;
+    return new Uint8Array(result.stdout);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Read recorded submodule gitlinks (`plugins/<name>` to commit SHA) from
  * `git ls-tree HEAD plugins/`. The trailing slash is required: without it git
  * prints the `plugins` tree entry instead of the gitlinks. Returns null when
- * git cannot report the pins.
+ * git cannot report the pins, including when the spawn itself fails.
  */
 export function readSubmodulePins(
   cwd: string = REPO_ROOT,
 ): Map<string, string> | null {
-  const result = Bun.spawnSync({
-    cmd: ["git", "ls-tree", "HEAD", "plugins/"],
-    cwd,
-    stdout: "pipe",
-    stderr: "pipe",
-    timeout: PIN_GIT_TIMEOUT_MS,
-  });
-  if (result.exitCode !== 0) return null;
-  return parseSubmodulePins(result.stdout.toString());
+  const listing = runGit(["ls-tree", "HEAD", "plugins/"], cwd);
+  if (listing === null) return null;
+  return parseSubmodulePins(new TextDecoder().decode(listing));
+}
+
+/** A local manifest read: bytes, an oversized object, or unreadable. */
+export type LocalManifestRead =
+  { bytes: Uint8Array } | { oversized: number } | null;
+
+/**
+ * Read `bitty-plugin.toml` at a pin from a plugin checkout. The blob size is
+ * checked before it is read so an oversized object is never buffered, and
+ * spawn failures fall through to the caller's remote fallback instead of
+ * throwing. Returns null when the object cannot be read locally.
+ */
+export function readManifestFromCheckout(
+  checkout: string,
+  pin: string,
+): LocalManifestRead {
+  const size = runGit([
+    "-C",
+    checkout,
+    "cat-file",
+    "-s",
+    `${pin}:${PLUGIN_MANIFEST_FILE}`,
+  ]);
+  if (size === null) return null;
+  const declared = Number.parseInt(new TextDecoder().decode(size).trim(), 10);
+  if (!Number.isFinite(declared) || declared < 0) return null;
+  if (declared > MANIFEST_MAX_BYTES) return { oversized: declared };
+  const blob = runGit([
+    "-C",
+    checkout,
+    "show",
+    `${pin}:${PLUGIN_MANIFEST_FILE}`,
+  ]);
+  if (blob === null) return null;
+  if (blob.byteLength > MANIFEST_MAX_BYTES) {
+    return { oversized: blob.byteLength };
+  }
+  return { bytes: blob };
 }
 
 /** Official entry deliberately published without a `plugins/<name>` pin. */
@@ -1498,9 +1648,10 @@ export interface NonShippingPinExemption {
 
 /**
  * Explicit non-shipping exemptions. Empty today: every official entry ships
- * from this repository and must have a recorded pin. An exemption is reported
- * as a named notice rather than silently skipping the entry, and an exemption
- * without a reason is a hard error.
+ * from this repository and must have a recorded pin plus a `sha256:`
+ * `manifest_hash`. An exemption is reported as a named notice rather than
+ * silently skipping the entry; an exemption without a reason, or one that
+ * still has a shipping submodule or gitlink, is a hard error.
  */
 export const NON_SHIPPING_PIN_EXEMPTIONS: readonly NonShippingPinExemption[] =
   [];
@@ -1519,6 +1670,43 @@ export interface ManifestHashRequest {
   file: string;
 }
 
+/** Result of reading a pinned manifest from local git or the raw URL. */
+export type ManifestReadResult =
+  { bytes: Uint8Array } | { httpStatus: number } | { oversized: number };
+
+/** Manifest byte sources for the pin binding phase. */
+export interface PinnedManifestPorts {
+  /** Read the manifest from a local checkout; null means fall back to raw. */
+  readLocal: (name: string, pin: string) => LocalManifestRead;
+  /** Fetch the pinned raw URL; throws only when the network is unavailable. */
+  fetchRaw: (
+    url: string,
+  ) => Promise<
+    { bytes: Uint8Array } | { httpStatus: number } | { oversized: number }
+  >;
+}
+
+/**
+ * Read a pinned manifest, preferring the local git object and falling back to
+ * the raw URL. Local read failures are not network failures: they return null
+ * from `readLocal` and only the fallback fetch can throw.
+ */
+export async function readPinnedManifest(
+  request: ManifestHashRequest,
+  ports: PinnedManifestPorts,
+): Promise<ManifestReadResult> {
+  let local: LocalManifestRead = null;
+  try {
+    local = ports.readLocal(request.name, request.pin);
+  } catch {
+    // A local spawn/read failure means "not available locally", never a
+    // network failure; fall through to the raw URL.
+    local = null;
+  }
+  if (local !== null) return local;
+  return await ports.fetchRaw(request.url);
+}
+
 /** Result of planning pin reachability and manifest binding checks. */
 export interface PinCheckPlan {
   requests: PinCheckRequest[];
@@ -1531,9 +1719,10 @@ export interface PinCheckPlan {
  * Turn official entries and recorded gitlinks into check requests.
  *
  * A shipping plugin (official entry with a `plugins/<name>` submodule) must
- * have a recorded gitlink pin; a missing pin is an error instead of a skipped
- * check. Entries listed in `exemptions` are reported with their reason and do
- * not require a pin. Entries with neither a submodule nor an exemption are
+ * have a recorded gitlink pin and a `manifest_hash`; both are hard errors when
+ * absent. An exemption is honoured only for an entry with no submodule and no
+ * recorded gitlink; an exempt name that still has either is an error instead
+ * of a silent skip. Entries with neither a submodule nor an exemption are
  * left to `checkSubmoduleConsistency`, which already reports them.
  */
 export function planPinChecks(
@@ -1566,14 +1755,22 @@ export function planPinChecks(
     if (!official) continue;
     const name = repositoryName(entry.repository);
     if (name.length === 0) continue;
+    const pin = pinsByName.get(name);
     const reason = exempt.get(name);
     if (reason !== undefined) {
+      if (pin !== undefined || recorded.has(`plugins/${name}`)) {
+        diagnostics.push({
+          severity: "error",
+          file,
+          message: `non-shipping exemption for plugins/${name} conflicts with a shipping submodule or recorded pin; remove the exemption or the shipping artifact`,
+        });
+        continue;
+      }
       notices.push(
         `notice: ${file}: plugins/${name} is exempt from pin checks (${reason})`,
       );
       continue;
     }
-    const pin = pinsByName.get(name);
     if (pin === undefined) continue;
     const sha = recorded.get(`plugins/${name}`);
     if (sha === undefined) {
@@ -1585,7 +1782,14 @@ export function planPinChecks(
       continue;
     }
     requests.push({ ...pin, pin: sha });
-    if (pin.manifestHash === undefined) continue;
+    if (pin.manifestHash === undefined) {
+      diagnostics.push({
+        severity: "error",
+        file,
+        message: `plugins/${name} has no manifest_hash; official pins must bind the manifest bytes`,
+      });
+      continue;
+    }
     const url = rawManifestUrl(entry.repository, sha);
     if (url === null) {
       notices.push(
@@ -1776,15 +1980,13 @@ export async function checkPinReachability(
 
 /** Manifest byte source for the hash binding phase. */
 export interface ManifestHashPorts {
-  readManifest: (
-    request: ManifestHashRequest,
-  ) => Promise<{ bytes: Uint8Array } | { httpStatus: number }>;
+  readManifest: (request: ManifestHashRequest) => Promise<ManifestReadResult>;
 }
 
 /** Outcome of the manifest hash binding phase. */
 export interface ManifestHashOutcome {
   diagnostics: Diagnostic[];
-  /** Human-readable notices the caller prints (offline, unsupported). */
+  /** Human-readable notices the caller prints (offline, unsupported hosts). */
   notices: string[];
   /** True when the phase stopped early; later hashes were not checked. */
   halted: boolean;
@@ -1808,10 +2010,12 @@ export function digestManifest(bytes: Uint8Array): string {
 }
 
 /**
- * Verify the registry `manifest_hash` binding at each pinned commit. A
- * mismatch or a missing manifest is an error; unsupported digest algorithms
- * and hosts are reported as notices; the first network failure halts the
- * phase with a notice, consistent with the reachability guard.
+ * Verify the registry `manifest_hash` binding at each pinned commit.
+ *
+ * A mismatch, a missing/oversized manifest, or an unsupported digest
+ * algorithm is an error: official pins must bind their manifest bytes. The
+ * first network failure halts the phase with a notice, consistent with the
+ * reachability guard.
  */
 export async function checkManifestHashes(
   requests: ManifestHashRequest[],
@@ -1823,19 +2027,21 @@ export async function checkManifestHashes(
     const expected = parseManifestHash(request.expected);
     if (expected === null) {
       diagnostics.push({
-        severity: "warning",
+        severity: "error",
         file: request.file,
-        message: `manifest_hash "${request.expected}" cannot be parsed; skipping pin binding`,
+        message: `manifest_hash "${request.expected}" cannot be parsed; official pins require an algorithm-prefixed digest`,
       });
       continue;
     }
     if (expected.algorithm !== "sha256") {
-      notices.push(
-        `notice: ${request.file}: manifest_hash algorithm "${expected.algorithm}" is not supported; skipping pin binding`,
-      );
+      diagnostics.push({
+        severity: "error",
+        file: request.file,
+        message: `manifest_hash algorithm "${expected.algorithm}" is not supported; official pins require sha256`,
+      });
       continue;
     }
-    let fetched: { bytes: Uint8Array } | { httpStatus: number };
+    let fetched: ManifestReadResult;
     try {
       fetched = await ports.readManifest(request);
     } catch (error) {
@@ -1843,6 +2049,14 @@ export async function checkManifestHashes(
         `notice: network unavailable (${error instanceof Error ? error.message : String(error)}); skipping remaining manifest hash checks`,
       );
       return { diagnostics, notices, halted: true };
+    }
+    if ("oversized" in fetched) {
+      diagnostics.push({
+        severity: "error",
+        file: request.file,
+        message: `plugins/${request.name} manifest ${PLUGIN_MANIFEST_FILE} at pin ${request.pin} exceeds the ${MANIFEST_MAX_BYTES}-byte limit (${fetched.oversized} bytes)`,
+      });
+      continue;
     }
     if ("httpStatus" in fetched) {
       if (fetched.httpStatus === 404) {

@@ -448,10 +448,13 @@ git submodule update --init --recursive
   GitHub compare API, failing when a pin is off-mainline and degrading with a
   notice when offline. A shipping plugin without a recorded pin is a hard
   error; an entry that intentionally ships without a pin must carry an
-  explicit non-shipping exemption with a reason. The validator also reads
-  `bitty-plugin.toml` at each pin (the local submodule object when available,
-  otherwise the pinned raw URL) and fails when its sha256 digest differs from
-  the entry `manifest_hash`. Bump a pin with `git submodule update --remote
+  explicit non-shipping exemption with a reason, and an exempt entry that
+  still has a submodule or gitlink is rejected. Every shipping pin must also
+  declare a `sha256:` `manifest_hash`; a missing or unsupported digest is a
+  hard error. The validator reads `bitty-plugin.toml` at each pin (the local
+  submodule object when available, otherwise the capped pinned raw URL) and
+  fails when the bytes are missing, exceed 256 KiB, or their sha256 digest
+  differs from the entry `manifest_hash`. Bump a pin with `git submodule update --remote
 plugins/<name>` (or an explicit SHA), then `git add plugins/<name>` and
   commit the pointer change.
 - `docs/` mounts the canonical

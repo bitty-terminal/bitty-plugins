@@ -159,10 +159,13 @@ and this project adheres to
   instead of the eleven gitlinks, so every official entry was skipped with a
   "no recorded pin" warning while validation exited zero. The validator now
   reads `git ls-tree HEAD plugins/`, treats a missing pin for a shipping
-  plugin as a hard error, verifies `manifest_hash` against the manifest bytes
-  at the pin (local submodule object, then the pinned raw URL), and reports
-  intentional non-shipping entries through a named exemption instead of
-  silently skipping them.
+  plugin as a hard error, requires every shipping pin to declare a `sha256:`
+  `manifest_hash`, and verifies that digest against the bounded manifest bytes
+  at the pin (local submodule object first, capped raw URL fallback). Local
+  git spawn failures fall back to the raw URL instead of being reported as
+  network errors. Intentional non-shipping entries are reported through a
+  named exemption, and an exemption that still has a submodule or gitlink is
+  rejected instead of suppressing verification.
 
 - Correct official entry drift against the current plugin mainlines: composer
   `compatibility.sdk` now mirrors the manifest `compat.plugin-api` `^1.0`
