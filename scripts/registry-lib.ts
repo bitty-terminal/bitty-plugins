@@ -6,6 +6,7 @@
  * and any future CLI) read the generated index only.
  */
 
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import {
@@ -23,6 +24,9 @@ export const GENERATED_FILE = "generated/registry.json";
 export const SCHEMA_FILE = "registry/schema.json";
 
 export const SCHEMA_VERSION = 1;
+
+/** Official plugin manifest file name inside a repository checkout. */
+export const PLUGIN_MANIFEST_FILE = "bitty-plugin.toml";
 
 export const KINDS = [
   "plugin",
@@ -1330,18 +1334,25 @@ export function normalizeRepositoryUrl(url: string): string {
  * `plugins/` submodule pins declared in `.gitmodules`.
  *
  * (1) every official entry needs a `plugins/<name>` submodule, where `<name>`
- * is the repository basename; (2) the submodule URL must match the entry
- * `repository` field; (3) `plugins/<name>` submodules or directories with no
- * official entry are reported. Pure and offline: callers supply the parsed
- * `.gitmodules` entries and the observed `plugins/` directory names, so unit
- * tests never touch the filesystem or the network.
+ * is the repository basename, unless it carries an explicit non-shipping
+ * exemption; (2) the submodule URL must match the entry `repository` field;
+ * (3) `plugins/<name>` submodules or directories with no official entry are
+ * reported. Pure and offline: callers supply the parsed `.gitmodules` entries
+ * and the observed `plugins/` directory names, so unit tests never touch the
+ * filesystem or the network.
  */
 export function checkSubmoduleConsistency(
   entries: LoadedEntry[],
   submodules: SubmoduleEntry[],
   pluginDirs: string[],
+  exemptions: readonly NonShippingPinExemption[] = [],
 ): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
+  const exempt = new Set(
+    exemptions
+      .filter((exemption) => exemption.reason.trim().length > 0)
+      .map((exemption) => exemption.name),
+  );
   const byPath = new Map<string, SubmoduleEntry>();
   for (const submodule of submodules) {
     if (!byPath.has(submodule.path)) byPath.set(submodule.path, submodule);
@@ -1355,6 +1366,7 @@ export function checkSubmoduleConsistency(
     const path = `plugins/${name}`;
     const submodule = byPath.get(path);
     if (submodule === undefined) {
+      if (exempt.has(name)) continue;
       diagnostics.push({
         severity: "error",
         file,
@@ -1401,13 +1413,16 @@ export interface OfficialPin {
   repository: string;
   /** Registry entry file, used for diagnostics. */
   file: string;
+  /** Registry `manifest_hash` expected at the pinned commit, when declared. */
+  manifestHash?: string;
 }
 
 /**
  * Collect official pins that have a matching `plugins/<name>` submodule.
- * Entries without a submodule are skipped silently here: the offline mapping
- * check in `checkSubmoduleConsistency` already reports them, and the pin
- * check must not double-report.
+ * Entries without a submodule are skipped here: the offline mapping check in
+ * `checkSubmoduleConsistency` already reports them unless they carry an
+ * explicit non-shipping exemption (see `planPinChecks`), and the pin check
+ * must not double-report.
  */
 export function collectOfficialPins(
   entries: LoadedEntry[],
@@ -1420,9 +1435,173 @@ export function collectOfficialPins(
     const name = repositoryName(entry.repository);
     if (name.length === 0) continue;
     if (!paths.has(`plugins/${name}`)) continue;
-    pins.push({ name, pin: "", repository: entry.repository, file });
+    const pin: OfficialPin = {
+      name,
+      pin: "",
+      repository: entry.repository,
+      file,
+    };
+    if (entry.manifest_hash !== undefined) {
+      pin.manifestHash = entry.manifest_hash;
+    }
+    pins.push(pin);
   }
   return pins;
+}
+
+/** Timeout for the local git call that reads recorded submodule pins. */
+export const PIN_GIT_TIMEOUT_MS = 15000;
+
+/**
+ * Parse `git ls-tree HEAD plugins/` output into `plugins/<name>` to commit
+ * SHA. Only gitlink entries (`160000 commit`) are pins; the `plugins` tree
+ * entry printed without the trailing slash is deliberately ignored.
+ */
+export function parseSubmodulePins(listing: string): Map<string, string> {
+  const pins = new Map<string, string>();
+  for (const line of listing.split("\n")) {
+    const match = line.match(/^160000 commit ([0-9a-f]{40})\t(.+)$/);
+    const sha = match?.[1];
+    const path = match?.[2];
+    if (sha !== undefined && path !== undefined) pins.set(path, sha);
+  }
+  return pins;
+}
+
+/**
+ * Read recorded submodule gitlinks (`plugins/<name>` to commit SHA) from
+ * `git ls-tree HEAD plugins/`. The trailing slash is required: without it git
+ * prints the `plugins` tree entry instead of the gitlinks. Returns null when
+ * git cannot report the pins.
+ */
+export function readSubmodulePins(
+  cwd: string = REPO_ROOT,
+): Map<string, string> | null {
+  const result = Bun.spawnSync({
+    cmd: ["git", "ls-tree", "HEAD", "plugins/"],
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+    timeout: PIN_GIT_TIMEOUT_MS,
+  });
+  if (result.exitCode !== 0) return null;
+  return parseSubmodulePins(result.stdout.toString());
+}
+
+/** Official entry deliberately published without a `plugins/<name>` pin. */
+export interface NonShippingPinExemption {
+  /** Repository basename, for example `widgets` (`plugins/widgets`). */
+  name: string;
+  /** Non-empty reason the entry is exempt from the pin requirement. */
+  reason: string;
+}
+
+/**
+ * Explicit non-shipping exemptions. Empty today: every official entry ships
+ * from this repository and must have a recorded pin. An exemption is reported
+ * as a named notice rather than silently skipping the entry, and an exemption
+ * without a reason is a hard error.
+ */
+export const NON_SHIPPING_PIN_EXEMPTIONS: readonly NonShippingPinExemption[] =
+  [];
+
+/** A registry manifest hash expected at a pinned commit. */
+export interface ManifestHashRequest {
+  /** Plugin directory name, for example `activity`. */
+  name: string;
+  /** Pinned commit SHA recorded by git for `plugins/<name>`. */
+  pin: string;
+  /** Raw manifest URL at the pinned commit. */
+  url: string;
+  /** Registry `manifest_hash` value, for example `sha256:<hex>`. */
+  expected: string;
+  /** Registry entry file, used for diagnostics. */
+  file: string;
+}
+
+/** Result of planning pin reachability and manifest binding checks. */
+export interface PinCheckPlan {
+  requests: PinCheckRequest[];
+  manifestRequests: ManifestHashRequest[];
+  diagnostics: Diagnostic[];
+  notices: string[];
+}
+
+/**
+ * Turn official entries and recorded gitlinks into check requests.
+ *
+ * A shipping plugin (official entry with a `plugins/<name>` submodule) must
+ * have a recorded gitlink pin; a missing pin is an error instead of a skipped
+ * check. Entries listed in `exemptions` are reported with their reason and do
+ * not require a pin. Entries with neither a submodule nor an exemption are
+ * left to `checkSubmoduleConsistency`, which already reports them.
+ */
+export function planPinChecks(
+  entries: LoadedEntry[],
+  submodules: SubmoduleEntry[],
+  recorded: Map<string, string>,
+  exemptions: readonly NonShippingPinExemption[] = NON_SHIPPING_PIN_EXEMPTIONS,
+): PinCheckPlan {
+  const requests: PinCheckRequest[] = [];
+  const manifestRequests: ManifestHashRequest[] = [];
+  const diagnostics: Diagnostic[] = [];
+  const notices: string[] = [];
+  const exempt = new Map<string, string>();
+  for (const exemption of exemptions) {
+    const reason = exemption.reason.trim();
+    if (reason.length === 0) {
+      diagnostics.push({
+        severity: "error",
+        file: `registry/official/${exemption.name}.toml`,
+        message: `non-shipping exemption for plugins/${exemption.name} has no reason`,
+      });
+      continue;
+    }
+    exempt.set(exemption.name, reason);
+  }
+  const pinsByName = new Map(
+    collectOfficialPins(entries, submodules).map((pin) => [pin.name, pin]),
+  );
+  for (const { entry, file, official } of entries) {
+    if (!official) continue;
+    const name = repositoryName(entry.repository);
+    if (name.length === 0) continue;
+    const reason = exempt.get(name);
+    if (reason !== undefined) {
+      notices.push(
+        `notice: ${file}: plugins/${name} is exempt from pin checks (${reason})`,
+      );
+      continue;
+    }
+    const pin = pinsByName.get(name);
+    if (pin === undefined) continue;
+    const sha = recorded.get(`plugins/${name}`);
+    if (sha === undefined) {
+      diagnostics.push({
+        severity: "error",
+        file,
+        message: `plugins/${name} is declared in .gitmodules but has no recorded pin in HEAD; record the gitlink with "git add plugins/${name}"`,
+      });
+      continue;
+    }
+    requests.push({ ...pin, pin: sha });
+    if (pin.manifestHash === undefined) continue;
+    const url = rawManifestUrl(entry.repository, sha);
+    if (url === null) {
+      notices.push(
+        `notice: ${file}: manifest hash binding is not supported for this host; skipping`,
+      );
+      continue;
+    }
+    manifestRequests.push({
+      name,
+      pin: sha,
+      url,
+      expected: pin.manifestHash,
+      file,
+    });
+  }
+  return { requests, manifestRequests, diagnostics, notices };
 }
 
 /** GitHub `owner/repo` slug parsed from a registry repository URL. */
@@ -1452,6 +1631,13 @@ export function githubRepoSlug(repository: string): GitHubSlug | null {
   } catch {
     return null;
   }
+}
+
+/** Raw manifest URL for a pinned GitHub commit, or null for other hosts. */
+export function rawManifestUrl(repository: string, pin: string): string | null {
+  const slug = githubRepoSlug(repository);
+  if (slug === null) return null;
+  return `https://raw.githubusercontent.com/${slug.owner}/${slug.repo}/${pin}/${PLUGIN_MANIFEST_FILE}`;
 }
 
 /**
@@ -1584,6 +1770,104 @@ export async function checkPinReachability(
       file: request.file,
       message: `pin reachability check for plugins/${request.name} returned HTTP ${compared.httpStatus ?? "unknown"}; skipping`,
     });
+  }
+  return { diagnostics, notices, halted: false };
+}
+
+/** Manifest byte source for the hash binding phase. */
+export interface ManifestHashPorts {
+  readManifest: (
+    request: ManifestHashRequest,
+  ) => Promise<{ bytes: Uint8Array } | { httpStatus: number }>;
+}
+
+/** Outcome of the manifest hash binding phase. */
+export interface ManifestHashOutcome {
+  diagnostics: Diagnostic[];
+  /** Human-readable notices the caller prints (offline, unsupported). */
+  notices: string[];
+  /** True when the phase stopped early; later hashes were not checked. */
+  halted: boolean;
+}
+
+/** Parse an algorithm-prefixed manifest digest such as `sha256:<hex>`. */
+export function parseManifestHash(
+  value: string,
+): { algorithm: string; hex: string } | null {
+  const separator = value.indexOf(":");
+  if (separator <= 0 || separator === value.length - 1) return null;
+  return {
+    algorithm: value.slice(0, separator),
+    hex: value.slice(separator + 1),
+  };
+}
+
+/** SHA-256 digest of the raw manifest bytes at a pinned commit. */
+export function digestManifest(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+/**
+ * Verify the registry `manifest_hash` binding at each pinned commit. A
+ * mismatch or a missing manifest is an error; unsupported digest algorithms
+ * and hosts are reported as notices; the first network failure halts the
+ * phase with a notice, consistent with the reachability guard.
+ */
+export async function checkManifestHashes(
+  requests: ManifestHashRequest[],
+  ports: ManifestHashPorts,
+): Promise<ManifestHashOutcome> {
+  const diagnostics: Diagnostic[] = [];
+  const notices: string[] = [];
+  for (const request of requests) {
+    const expected = parseManifestHash(request.expected);
+    if (expected === null) {
+      diagnostics.push({
+        severity: "warning",
+        file: request.file,
+        message: `manifest_hash "${request.expected}" cannot be parsed; skipping pin binding`,
+      });
+      continue;
+    }
+    if (expected.algorithm !== "sha256") {
+      notices.push(
+        `notice: ${request.file}: manifest_hash algorithm "${expected.algorithm}" is not supported; skipping pin binding`,
+      );
+      continue;
+    }
+    let fetched: { bytes: Uint8Array } | { httpStatus: number };
+    try {
+      fetched = await ports.readManifest(request);
+    } catch (error) {
+      notices.push(
+        `notice: network unavailable (${error instanceof Error ? error.message : String(error)}); skipping remaining manifest hash checks`,
+      );
+      return { diagnostics, notices, halted: true };
+    }
+    if ("httpStatus" in fetched) {
+      if (fetched.httpStatus === 404) {
+        diagnostics.push({
+          severity: "error",
+          file: request.file,
+          message: `plugins/${request.name} manifest ${PLUGIN_MANIFEST_FILE} was not found at pin ${request.pin} (HTTP 404)`,
+        });
+      } else {
+        diagnostics.push({
+          severity: "warning",
+          file: request.file,
+          message: `manifest hash check for plugins/${request.name} returned HTTP ${fetched.httpStatus}; skipping`,
+        });
+      }
+      continue;
+    }
+    const actual = digestManifest(fetched.bytes);
+    if (actual !== expected.hex) {
+      diagnostics.push({
+        severity: "error",
+        file: request.file,
+        message: `plugins/${request.name} manifest_hash mismatch at pin ${request.pin}: registry ${request.expected} but manifest is sha256:${actual}`,
+      });
+    }
   }
   return { diagnostics, notices, halted: false };
 }

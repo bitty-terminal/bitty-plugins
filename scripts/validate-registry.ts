@@ -4,25 +4,29 @@
  * Checks: schema shape and key policy, duplicate ids, community file naming,
  * repository URL format and (bounded, network-guarded) existence, local
  * official-plugin manifest consistency, official entry to plugins/ submodule
- * mapping (static, offline), submodule pin mainline reachability (bounded,
- * network-guarded), optional SDK manifest tooling, SPDX license syntax, and
- * compatibility range syntax. Exits non-zero when any error is found;
- * warnings alone do not fail.
+ * mapping and pin presence (static, offline), submodule pin mainline
+ * reachability and manifest hash binding (bounded, network-guarded), optional
+ * SDK manifest tooling, SPDX license syntax, and compatibility range syntax.
+ * Exits non-zero when any error is found; warnings alone do not fail.
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   REPO_ROOT,
+  NON_SHIPPING_PIN_EXEMPTIONS,
+  PLUGIN_MANIFEST_FILE,
+  checkManifestHashes,
   checkPinReachability,
   checkRepositoryExistence,
   checkSubmoduleConsistency,
-  collectOfficialPins,
   countNetworkRepositories,
   countSeverity,
   formatDiagnostic,
   loadEntries,
   parseGitmodules,
+  planPinChecks,
+  readSubmodulePins,
   repositoryName,
   resolveOfficialManifest,
   resolveSdkDir,
@@ -34,6 +38,7 @@ import {
   type Diagnostic,
   type GitHubSlug,
   type LoadedEntry,
+  type ManifestHashRequest,
   type SdkDirResolution,
   type SubmoduleEntry,
 } from "./registry-lib.ts";
@@ -43,7 +48,7 @@ const SDK_TIMEOUT_MS = 20000;
 const SDK_INSTALL_TIMEOUT_MS = 120000;
 const PIN_COMPARE_TIMEOUT_MS = 10000;
 const PIN_LS_REMOTE_TIMEOUT_MS = 15000;
-const PIN_GIT_TIMEOUT_MS = 15000;
+const PIN_MANIFEST_TIMEOUT_MS = 10000;
 const PIN_CHECK_BUDGET_MS = 60000;
 
 /** Explicit override for the SDK checkout used by the manifest lint. */
@@ -52,8 +57,6 @@ const SDK_ENV_VAR = "BITTY_PLUGIN_SDK_DIR";
 const WORKSPACE_MANIFEST_FILE = "workspace.toml";
 /** Submodule path of the SDK checkout inside this repository. */
 const SDK_SUBMODULE_PATH = "sdk";
-/** Official plugin manifest file name inside a repository checkout. */
-const PLUGIN_MANIFEST_FILE = "bitty-plugin.toml";
 
 const USAGE = `usage: bun scripts/validate-registry.ts [--skip-network]
 
@@ -391,33 +394,12 @@ function loadSubmoduleState(): {
  */
 function checkSubmoduleMapping(entries: LoadedEntry[]): Diagnostic[] {
   const { submodules, pluginDirs } = loadSubmoduleState();
-  return checkSubmoduleConsistency(entries, submodules, pluginDirs);
-}
-
-/**
- * Read recorded submodule gitlinks (`plugins/<name>` to commit SHA) from
- * `git ls-tree HEAD`, which reads the gitlinks recorded in the parent commit
- * rather than checkout status. Returns null when git cannot report the pins.
- */
-function readSubmodulePins(): Map<string, string> | null {
-  const result = Bun.spawnSync({
-    cmd: ["git", "ls-tree", "HEAD", "plugins"],
-    cwd: REPO_ROOT,
-    stdout: "pipe",
-    stderr: "pipe",
-    timeout: PIN_GIT_TIMEOUT_MS,
-  });
-  if (result.exitCode !== 0) return null;
-  const pins = new Map<string, string>();
-  for (const line of result.stdout.toString().split("\n")) {
-    // Format: <mode> <type> <sha> <path>
-    // Example: 160000 commit abc123... plugins/activity
-    const match = line.match(/^160000 commit ([0-9a-f]{40})\t(.+)$/);
-    const sha = match?.[1];
-    const path = match?.[2];
-    if (sha !== undefined && path !== undefined) pins.set(path, sha);
-  }
-  return pins;
+  return checkSubmoduleConsistency(
+    entries,
+    submodules,
+    pluginDirs,
+    NON_SHIPPING_PIN_EXEMPTIONS,
+  );
 }
 
 /**
@@ -477,44 +459,93 @@ async function comparePinToTipWithApi(
 }
 
 /**
- * Bounded mainline reachability phase: prove every official plugins/<name>
- * pin is an ancestor of the plugin default branch. Degrades gracefully
- * offline with a notice, consistent with the repository existence guard.
+ * Read the manifest bytes at a pin from an initialized submodule checkout.
+ * Returns null when the submodule is absent, the pinned object is not
+ * available locally, or git fails; the caller falls back to the raw URL.
+ */
+function readLocalManifestAtPin(name: string, pin: string): Uint8Array | null {
+  const checkout = join(REPO_ROOT, "plugins", name);
+  if (!existsSync(join(checkout, ".git"))) return null;
+  const result = Bun.spawnSync({
+    cmd: ["git", "-C", checkout, "show", `${pin}:${PLUGIN_MANIFEST_FILE}`],
+    stdout: "pipe",
+    stderr: "pipe",
+    timeout: PIN_MANIFEST_TIMEOUT_MS,
+  });
+  if (result.exitCode !== 0) return null;
+  return new Uint8Array(result.stdout);
+}
+
+/**
+ * Read the raw manifest bytes at a pin: prefer the local submodule object,
+ * then fall back to the pinned raw URL. Non-OK HTTP responses surface as
+ * `httpStatus`; network failures throw so the caller can halt.
+ */
+async function readManifestAtPin(
+  request: ManifestHashRequest,
+): Promise<{ bytes: Uint8Array } | { httpStatus: number }> {
+  const local = readLocalManifestAtPin(request.name, request.pin);
+  if (local !== null) return { bytes: local };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PIN_MANIFEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(request.url, {
+      headers: {
+        "User-Agent": "bitty-plugins-registry-validate",
+        Accept: "text/plain",
+      },
+      redirect: "follow",
+      signal: controller.signal,
+    });
+    if (!response.ok) return { httpStatus: response.status };
+    return { bytes: new Uint8Array(await response.arrayBuffer()) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Bounded pin phase: prove every official `plugins/<name>` pin is an ancestor
+ * of the plugin default branch and that the pinned manifest bytes match the
+ * registry `manifest_hash`. A missing pin for a shipping plugin is a hard
+ * error; explicit non-shipping exemptions are reported with their reason.
+ * Planning and missing-pin detection always run; `checkNetwork` only gates
+ * the reachability and manifest fetches. Degrades gracefully offline with a
+ * notice, consistent with the repository existence guard.
  */
 async function checkSubmodulePinsReachable(
   entries: LoadedEntry[],
+  checkNetwork: boolean,
 ): Promise<Diagnostic[]> {
   const { submodules } = loadSubmoduleState();
-  const pins = collectOfficialPins(entries, submodules);
-  if (pins.length === 0) return [];
   const pinShas = readSubmodulePins();
   if (pinShas === null) {
-    console.log(
-      "notice: cannot determine submodule pins (git submodule status failed); skipping pin reachability checks",
-    );
-    return [];
+    return [
+      {
+        severity: "error",
+        file: "plugins/",
+        message:
+          "cannot read recorded submodule pins (git ls-tree HEAD plugins/ failed); pin reachability and manifest binding cannot be verified",
+      },
+    ];
   }
-  const diagnostics: Diagnostic[] = [];
-  const requests: {
-    name: string;
-    pin: string;
-    repository: string;
-    file: string;
-  }[] = [];
-  for (const pin of pins) {
-    const sha = pinShas.get(`plugins/${pin.name}`);
-    if (sha === undefined) {
-      diagnostics.push({
-        severity: "warning",
-        file: pin.file,
-        message: `plugins/${pin.name} is declared in .gitmodules but has no recorded pin; skipping reachability`,
-      });
-      continue;
-    }
-    requests.push({ ...pin, pin: sha });
+  const plan = planPinChecks(
+    entries,
+    submodules,
+    pinShas,
+    NON_SHIPPING_PIN_EXEMPTIONS,
+  );
+  for (const notice of plan.notices) console.log(notice);
+  const diagnostics: Diagnostic[] = [...plan.diagnostics];
+  if (plan.requests.length === 0) return diagnostics;
+  if (!checkNetwork) {
+    console.log(
+      `notice: pin reachability and manifest hash checks skipped for ${plan.requests.length} pin(s) (--skip-network)`,
+    );
+    return diagnostics;
   }
   const outcome = await checkPinReachability(
-    requests,
+    plan.requests,
     {
       resolveDefaultTip: resolveDefaultTipWithGit,
       comparePinToTip: comparePinToTipWithApi,
@@ -522,7 +553,24 @@ async function checkSubmodulePinsReachable(
     PIN_CHECK_BUDGET_MS,
   );
   for (const notice of outcome.notices) console.log(notice);
-  return [...diagnostics, ...outcome.diagnostics];
+  diagnostics.push(...outcome.diagnostics);
+  if (outcome.halted) {
+    console.log(
+      "notice: manifest hash checks skipped after the pin reachability halt",
+    );
+    return diagnostics;
+  }
+  const manifestOutcome = await checkManifestHashes(plan.manifestRequests, {
+    readManifest: readManifestAtPin,
+  });
+  for (const notice of manifestOutcome.notices) console.log(notice);
+  diagnostics.push(...manifestOutcome.diagnostics);
+  if (!manifestOutcome.halted) {
+    console.log(
+      `notice: pin checks: ${plan.requests.length} reachability, ${plan.manifestRequests.length} manifest hash binding(s)`,
+    );
+  }
+  return diagnostics;
 }
 
 async function main(): Promise<number> {
@@ -545,12 +593,10 @@ async function main(): Promise<number> {
     console.log(
       `notice: repository existence checks skipped for ${countNetworkRepositories(entries)} entr(ies) (--skip-network)`,
     );
-    console.log(
-      "notice: submodule pin reachability checks skipped (--skip-network)",
-    );
+    diagnostics.push(...(await checkSubmodulePinsReachable(entries, false)));
   } else {
     diagnostics.push(...(await checkRepositoriesOnline(entries)));
-    diagnostics.push(...(await checkSubmodulePinsReachable(entries)));
+    diagnostics.push(...(await checkSubmodulePinsReachable(entries, true)));
   }
   const errors = countSeverity(diagnostics, "error");
   const warnings = countSeverity(diagnostics, "warning");

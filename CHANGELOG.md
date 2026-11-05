@@ -154,6 +154,16 @@ and this project adheres to
 
 ### Fixed
 
+- Submodule pin validation reads the recorded gitlinks again. The reachability
+  phase ran `git ls-tree HEAD plugins`, which prints the `plugins` tree entry
+  instead of the eleven gitlinks, so every official entry was skipped with a
+  "no recorded pin" warning while validation exited zero. The validator now
+  reads `git ls-tree HEAD plugins/`, treats a missing pin for a shipping
+  plugin as a hard error, verifies `manifest_hash` against the manifest bytes
+  at the pin (local submodule object, then the pinned raw URL), and reports
+  intentional non-shipping entries through a named exemption instead of
+  silently skipping them.
+
 - Correct official entry drift against the current plugin mainlines: composer
   `compatibility.sdk` now mirrors the manifest `compat.plugin-api` `^1.0`
   instead of the stale `^0.1`, and file-manager's description now matches its

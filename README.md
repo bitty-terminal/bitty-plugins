@@ -423,9 +423,9 @@ just hooks-install      # install lefthook Git hooks (opt-in per checkout)
 Use `--skip-network` with `just registry-validate --skip-network` (or
 `REGISTRY_SKIP_NETWORK=1`) for hermetic runs; the validator reports how many
 repository existence checks were skipped and continues with the static checks
-(submodule mapping and manifest consistency still run). Without the flag, a
-network error skips only the entries it had not checked yet and reports the
-count; `404`/`410` remain hard errors.
+(submodule mapping, pin presence/exemptions, and manifest consistency still
+run). Without the flag, a network error skips only the entries it had not
+checked yet and reports the count; `404`/`410` remain hard errors.
 
 ## Submodules
 
@@ -446,7 +446,12 @@ git submodule update --init --recursive
   be a commit reachable from the plugin's default branch: the validator
   resolves the tip with `git ls-remote` and proves ancestry through the
   GitHub compare API, failing when a pin is off-mainline and degrading with a
-  notice when offline. Bump a pin with `git submodule update --remote
+  notice when offline. A shipping plugin without a recorded pin is a hard
+  error; an entry that intentionally ships without a pin must carry an
+  explicit non-shipping exemption with a reason. The validator also reads
+  `bitty-plugin.toml` at each pin (the local submodule object when available,
+  otherwise the pinned raw URL) and fails when its sha256 digest differs from
+  the entry `manifest_hash`. Bump a pin with `git submodule update --remote
 plugins/<name>` (or an explicit SHA), then `git add plugins/<name>` and
   commit the pointer change.
 - `docs/` mounts the canonical
