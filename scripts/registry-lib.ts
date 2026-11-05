@@ -80,7 +80,11 @@ export async function readBoundedBytes(
   if (declared !== null) {
     const length = Number.parseInt(declared, 10);
     if (Number.isFinite(length) && length > maxBytes) {
-      await response.body?.cancel();
+      try {
+        await response.body?.cancel();
+      } catch {
+        // A rejecting cancel must not mask the authoritative oversize error.
+      }
       throw oversizedManifestError(maxBytes, length);
     }
   }
@@ -103,7 +107,11 @@ export async function readBoundedBytes(
     if (value === undefined) continue;
     total += value.byteLength;
     if (total > maxBytes) {
-      await reader.cancel();
+      try {
+        await reader.cancel();
+      } catch {
+        // A rejecting cancel must not mask the authoritative oversize error.
+      }
       throw oversizedManifestError(maxBytes, total);
     }
     chunks.push(value);
@@ -143,10 +151,12 @@ export const COMMUNITY_FILE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)+\.toml$/;
 export const REPOSITORY_PATTERN =
   /^https:\/\/[a-z0-9.-]+(?:\/[A-Za-z0-9._~-]+){2,}$/;
 
-// Integrity fields are optional in this phase: absence is a warning, never a
-// validation error, because no verification keys are configured yet.
-export const MANIFEST_HASH_PATTERN = /^[a-z0-9]+:[0-9a-f]{32,128}$/;
-export const MANIFEST_HASH_MAX_LENGTH = 160;
+// Integrity fields are split by scope: a community entry may omit
+// `manifest_hash` (a warning only), while an official shipping pin must
+// declare `sha256:<64 hex>` and have that digest verified at the pin.
+// Signatures remain optional and advisory until key configuration lands.
+export const MANIFEST_HASH_PATTERN = /^sha256:[0-9a-f]{64}$/;
+export const MANIFEST_HASH_MAX_LENGTH = 71;
 export const SIGNATURE_ALGORITHM_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 export const SIGNATURE_ALGORITHM_MAX_LENGTH = 32;
 export const SIGNATURE_VALUE_MAX_LENGTH = 4096;
@@ -647,9 +657,10 @@ export function validateEntry(
 }
 
 /**
- * Validate the optional integrity fields. A declared field is shape-checked
- * as a hard error; a missing field only warns, so unsigned entries remain
- * publishable while the ecosystem moves toward mandatory verification.
+ * Validate the declared integrity fields. A declared field is shape-checked
+ * as a hard error. A missing `manifest_hash` only warns here: community
+ * entries stay publishable without integrity data, while official shipping
+ * pins are required to declare and match one in the pin phase.
  */
 function validateIntegrityFields(
   entry: RegistryEntry,
@@ -665,14 +676,14 @@ function validateIntegrityFields(
 
   if (entry.manifest_hash === undefined) {
     warn(
-      "`manifest_hash` is not set; integrity binding is advisory in this phase (unsigned entries are accepted with a warning)",
+      "`manifest_hash` is not set; optional for community entries but required for official shipping pins",
     );
   } else if (
     !MANIFEST_HASH_PATTERN.test(entry.manifest_hash) ||
     entry.manifest_hash.length > MANIFEST_HASH_MAX_LENGTH
   ) {
     error(
-      '`manifest_hash` must be an algorithm-prefixed lowercase hex digest like "sha256:<64 hex chars>"',
+      '`manifest_hash` must be a raw-bytes sha256 digest like "sha256:<64 lowercase hex chars>"',
     );
   }
 
@@ -1787,6 +1798,14 @@ export function planPinChecks(
         severity: "error",
         file,
         message: `plugins/${name} has no manifest_hash; official pins must bind the manifest bytes`,
+      });
+      continue;
+    }
+    if (!MANIFEST_HASH_PATTERN.test(pin.manifestHash)) {
+      diagnostics.push({
+        severity: "error",
+        file,
+        message: `plugins/${name} manifest_hash "${pin.manifestHash}" must be "sha256:<64 lowercase hex chars>" for official shipping pins`,
       });
       continue;
     }

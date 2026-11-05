@@ -157,9 +157,9 @@ tags = ["activity", "privacy"] # optional
 categories = ["productivity"] # optional
 license = "MIT" # optional
 
-# Optional integrity fields (advisory in this phase; unsigned entries warn but
-# are accepted). `manifest_hash` is the canonical-form manifest digest (H-B);
-# `signature` is a detached publisher signature over the manifest and hash.
+# Integrity: official shipping pins must declare the raw-bytes `sha256:` digest
+# below, which `just registry-validate` verifies at the pinned revision.
+# Community entries may omit it; `signature` remains optional and advisory.
 # manifest_hash = "sha256:<64 lowercase hex chars>"
 # [signature]
 # algorithm = "ed25519" # or "minisign", "openpgp"
@@ -186,16 +186,20 @@ bare exact version); the plugin API range `sdk` keeps its own upper bound.
   `id` or the entry is reported as an error and keeps its previous metadata.
   Fetches are capped at 256 KiB (a `Content-Length` pre-check plus a streaming
   cap); an oversized body is a warning and also keeps the previous metadata.
-- Integrity fields are optional in this phase. A declared `manifest_hash` or
-  `signature` is shape-checked, and an unsigned entry only warns, so the format
-  moves toward verification without blocking publication. `generate-index.ts`
-  records a per-entry `signature_status` (`verified` | `unverified` |
-  `unsigned`); no entry can be `verified` until a key-configured verification
-  phase lands, so the current output is `unsigned`.
-- Official `manifest_hash` values (Phase 1, H-A: raw-bytes digest) pin the
+- Integrity fields are split by scope. Every official shipping pin must
+  declare `manifest_hash = "sha256:<64 lowercase hex chars>"`, and
+  `just registry-validate` verifies the digest against the manifest bytes at
+  the pin (local git object first, then the capped raw URL). Community
+  entries may omit it, and a missing value only warns there. A declared
+  `signature` remains optional and advisory: `generate-index.ts` records a
+  per-entry `signature_status` (`verified` | `unverified` | `unsigned`); no
+  entry can be `verified` until a key-configured verification phase lands, so
+  the current output is `unsigned`.
+- Official `manifest_hash` values (required, H-A: raw-bytes digest) pin the
   owning repository's `bitty-plugin.toml` bytes at the submodule revision
   recorded by `git ls-tree HEAD plugins/<name>`. This is a SHA-256 digest over
   the fetched transport bytes (H-A), not semantic canonical hashing (H-B).
+  A missing value or a non-`sha256:<64 hex>` value fails validation.
   Future phases will distinguish H-A from H-B via explicit version tagging.
   When an official pin moves (submodule bump or upstream manifest change),
   re-pin the hash in the same reviewed change: read the manifest bytes at the
@@ -381,10 +385,11 @@ The store treats the index as untrusted. It re-validates every entry's `id`
 and `repository` against the registry patterns at load time, allows only
 `https:` external links, and produces no install command for an illegal `id`
 or repository. One-click copy is gated only by those client-side format
-checks. Signature integrity fields (`manifest_hash`, `signature`) and the
-index-provided `signature_status` are advisory in this phase: the client does
-not verify them, so they appear as a badge with a grey-out for the unverified
-state and are not claimed as tamper protection.
+checks. The store does not verify `manifest_hash` or `signature` client-side:
+the official digest is checked by `just registry-validate` at the pin, while
+`signature` and the index-provided `signature_status` remain advisory. They
+appear as a badge with a grey-out for the unverified state and are not claimed
+as tamper protection.
 
 Client-side routes (`/`, `/plugins/<id>`, `/categories/<c>`, `/authors/<a>`,
 `/sdk`, `/create-plugin`) use the History API. `app/public/_redirects`

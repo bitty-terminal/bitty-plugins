@@ -161,11 +161,13 @@ and this project adheres to
   reads `git ls-tree HEAD plugins/`, treats a missing pin for a shipping
   plugin as a hard error, requires every shipping pin to declare a `sha256:`
   `manifest_hash`, and verifies that digest against the bounded manifest bytes
-  at the pin (local submodule object first, capped raw URL fallback). Local
-  git spawn failures fall back to the raw URL instead of being reported as
-  network errors. Intentional non-shipping entries are reported through a
-  named exemption, and an exemption that still has a submodule or gitlink is
-  rejected instead of suppressing verification.
+  at the pin (local submodule object first, capped raw URL fallback). The
+  `sha256:<64 lowercase hex>` shape is enforced statically, so
+  `--skip-network` rejects other algorithms instead of deferring to the
+  online phase. Local git spawn failures fall back to the raw URL instead of
+  being reported as network errors. Intentional non-shipping entries are
+  reported through a named exemption, and an exemption that still has a
+  submodule or gitlink is rejected instead of suppressing verification.
 
 - Correct official entry drift against the current plugin mainlines: composer
   `compatibility.sdk` now mirrors the manifest `compat.plugin-api` `^1.0`

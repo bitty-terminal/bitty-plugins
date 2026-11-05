@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -1614,6 +1614,33 @@ describe("official pin planning", () => {
     ).toBe(true);
   });
 
+  test("rejects a non-sha256 manifest_hash without network checks", () => {
+    const sha512 = loaded(
+      {
+        ...baseEntry,
+        id: "official.activity",
+        repository: "https://github.com/bitty-terminal/activity",
+        manifest_hash: `sha512:${"a".repeat(128)}`,
+      },
+      "registry/official/activity.toml",
+      true,
+    );
+    const plan = planPinChecks(
+      [sha512],
+      submodules,
+      new Map([["plugins/activity", sha]]),
+    );
+    expect(plan.requests).toHaveLength(1);
+    expect(plan.manifestRequests).toEqual([]);
+    expect(
+      plan.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes("sha256:<64 lowercase hex chars>"),
+      ),
+    ).toBe(true);
+  });
+
   test("reports an exempt non-shipping entry with its reason", () => {
     const plan = planPinChecks([activity], [], new Map(), [
       { name: "activity", reason: "in-tree replacement" },
@@ -2317,6 +2344,21 @@ describe("bounded response reading", () => {
     );
   });
 
+  test("keeps the oversized error when a stream cancel rejects", async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(300 * 1024));
+      },
+      cancel() {
+        throw new Error("cancel failed");
+      },
+    });
+    const response = new Response(stream);
+    await expect(readBoundedText(response)).rejects.toThrow(
+      "exceeds the 262144-byte limit",
+    );
+  });
+
   test("accepts streamed responses within the limit", async () => {
     const body = "x".repeat(1000);
     const response = new Response(body);
@@ -2327,6 +2369,11 @@ describe("bounded response reading", () => {
 
 describe("offline registry validation", () => {
   test("keeps pin planning active with --skip-network", () => {
+    const { entries } = loadEntries();
+    const submodules = parseGitmodules(
+      readFileSync(join(REPO_ROOT, ".gitmodules"), "utf8"),
+    );
+    const expected = collectOfficialPins(entries, submodules).length;
     const result = Bun.spawnSync({
       cmd: [process.execPath, "scripts/validate-registry.ts", "--skip-network"],
       cwd: REPO_ROOT,
@@ -2336,7 +2383,7 @@ describe("offline registry validation", () => {
     const stdout = result.stdout.toString();
     expect(result.exitCode).toBe(0);
     expect(stdout).toContain(
-      "pin reachability and manifest hash checks skipped for 11 pin(s) (--skip-network)",
+      `pin reachability and manifest hash checks skipped for ${expected} pin(s) (--skip-network)`,
     );
     expect(stdout).not.toContain("no recorded pin");
   });
