@@ -47,9 +47,10 @@ test:
 
 # Validate registry entries: schema, duplicate ids, repository URL format and
 # existence (bounded, skipped with a notice when offline), official entry to
-# plugins/ submodule mapping (static, always runs offline), submodule pin
-# mainline reachability (bounded, skipped with a notice when offline), license
-# expressions, and compatibility range syntax. Non-zero exit on any error.
+# plugins/ submodule mapping and pin presence (static, always runs offline),
+# submodule pin mainline reachability and manifest hash binding (bounded,
+# skipped with a notice when offline), license expressions, and compatibility
+# range syntax. Non-zero exit on any error.
 registry-validate *args:
 	bun scripts/validate-registry.ts {{args}}
 

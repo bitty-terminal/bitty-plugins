@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
+  REPO_ROOT,
   buildIndex,
   checkLicense,
+  checkManifestHashes,
   checkPinReachability,
   checkRepositoryExistence,
   checkSubmoduleConsistency,
@@ -9,6 +14,7 @@ import {
   COMPATIBILITY_MANIFEST_FIELDS,
   countNetworkRepositories,
   countSeverity,
+  digestManifest,
   githubRepoSlug,
   isPinReachable,
   loadEntries,
@@ -16,6 +22,11 @@ import {
   parseGitmodules,
   parseIndex,
   parseRepositoryIdentity,
+  parseSubmodulePins,
+  planPinChecks,
+  readManifestFromCheckout,
+  readPinnedManifest,
+  readSubmodulePins,
   renderIndex,
   repositoryName,
   resolveOfficialManifest,
@@ -25,6 +36,7 @@ import {
   validateRawKeys,
   validateRegistry,
   type LoadedEntry,
+  type ManifestHashRequest,
   type PinCheckPorts,
   type PinCheckRequest,
   type RegistryEntry,
@@ -1206,6 +1218,27 @@ describe("submodule consistency checks", () => {
     ).toBe(true);
   });
 
+  test("accepts an explicit non-shipping exemption without a submodule", () => {
+    const entries = [
+      loaded(
+        {
+          ...baseEntry,
+          id: "official.plugin",
+          repository: "https://github.com/example/plugin",
+        },
+        "registry/official/plugin.toml",
+        true,
+      ),
+    ];
+    const diagnostics = checkSubmoduleConsistency(
+      entries,
+      [],
+      [],
+      [{ name: "plugin", reason: "in-tree replacement" }],
+    );
+    expect(diagnostics).toEqual([]);
+  });
+
   test("requires submodule URL to match registry repository", () => {
     const entries = [
       loaded(
@@ -1369,6 +1402,445 @@ describe("official pin collection", () => {
     ];
     const pins = collectOfficialPins(entries, submodules);
     expect(pins).toHaveLength(0);
+  });
+});
+
+function createPinFixture(names: string[]): string {
+  const dir = mkdtempSync(join(tmpdir(), "bitty-pins-"));
+  const git = (...args: string[]): string => {
+    const result = Bun.spawnSync({
+      cmd: ["git", ...args],
+      cwd: dir,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `git ${args.join(" ")} failed: ${result.stderr.toString()}`,
+      );
+    }
+    return result.stdout.toString().trim();
+  };
+  git("init", "-q");
+  git("config", "user.email", "fixture@example.com");
+  git("config", "user.name", "Fixture");
+  for (const [index, name] of names.entries()) {
+    const sha = (index + 1).toString(16).padStart(40, "0");
+    git(
+      "update-index",
+      "--add",
+      "--cacheinfo",
+      `160000,${sha},plugins/${name}`,
+    );
+  }
+  const tree = git("write-tree");
+  const commit = git("commit-tree", tree, "-m", "pin fixture");
+  git("update-ref", "HEAD", commit);
+  return dir;
+}
+
+function createManifestFixture(size: number): {
+  dir: string;
+  pin: string;
+} {
+  const dir = mkdtempSync(join(tmpdir(), "bitty-manifest-"));
+  const git = (...args: string[]): string => {
+    const result = Bun.spawnSync({
+      cmd: ["git", ...args],
+      cwd: dir,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `git ${args.join(" ")} failed: ${result.stderr.toString()}`,
+      );
+    }
+    return result.stdout.toString().trim();
+  };
+  git("init", "-q");
+  git("config", "user.email", "fixture@example.com");
+  git("config", "user.name", "Fixture");
+  writeFileSync(join(dir, "bitty-plugin.toml"), "x".repeat(size));
+  git("add", "bitty-plugin.toml");
+  git("commit", "-q", "-m", "manifest fixture");
+  return { dir, pin: git("rev-parse", "HEAD") };
+}
+
+describe("recorded submodule pins", () => {
+  const names = [
+    "activity",
+    "bar",
+    "composer",
+    "copy-mode",
+    "dashboard",
+    "devtools",
+    "file-manager",
+    "git-panel",
+    "history",
+    "palette",
+    "search",
+  ];
+
+  test("reads all eleven gitlinks and ignores the bare plugins tree entry", () => {
+    const dir = createPinFixture(names);
+    try {
+      const pins = readSubmodulePins(dir);
+      expect(pins).not.toBeNull();
+      expect(pins?.size).toBe(11);
+      expect(pins?.get("plugins/activity")).toBe("1".padStart(40, "0"));
+      expect(pins?.get("plugins/devtools")).toBe("6".padStart(40, "0"));
+      const bare = Bun.spawnSync({
+        cmd: ["git", "ls-tree", "HEAD", "plugins"],
+        cwd: dir,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      expect(parseSubmodulePins(bare.stdout.toString()).size).toBe(0);
+      expect(bare.stdout.toString()).toContain("040000 tree");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("returns null instead of throwing when the checkout is missing", () => {
+    const dir = mkdtempSync(join(tmpdir(), "bitty-missing-"));
+    rmSync(dir, { recursive: true, force: true });
+    expect(readSubmodulePins(dir)).toBeNull();
+    expect(readManifestFromCheckout(dir, "a".repeat(40))).toBeNull();
+  });
+});
+
+describe("official pin planning", () => {
+  const activity = loaded(
+    {
+      ...baseEntry,
+      id: "official.activity",
+      repository: "https://github.com/bitty-terminal/activity",
+      manifest_hash: `sha256:${"a".repeat(64)}`,
+    },
+    "registry/official/activity.toml",
+    true,
+  );
+  const submodules: SubmoduleEntry[] = [
+    {
+      name: "activity",
+      path: "plugins/activity",
+      url: "https://github.com/bitty-terminal/activity",
+    },
+  ];
+  const sha = "b".repeat(40);
+
+  test("records shipping pins and manifest binding requests", () => {
+    const plan = planPinChecks(
+      [activity],
+      submodules,
+      new Map([["plugins/activity", sha]]),
+    );
+    expect(plan.diagnostics).toEqual([]);
+    expect(plan.requests).toHaveLength(1);
+    expect(plan.requests[0]?.pin).toBe(sha);
+    expect(plan.requests[0]?.manifestHash).toBe(`sha256:${"a".repeat(64)}`);
+    expect(plan.manifestRequests).toHaveLength(1);
+    expect(plan.manifestRequests[0]?.url).toBe(
+      `https://raw.githubusercontent.com/bitty-terminal/activity/${sha}/bitty-plugin.toml`,
+    );
+  });
+
+  test("fails when a shipping plugin has no recorded pin", () => {
+    const plan = planPinChecks([activity], submodules, new Map());
+    expect(plan.requests).toEqual([]);
+    expect(
+      plan.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes("no recorded pin"),
+      ),
+    ).toBe(true);
+  });
+
+  test("rejects an exemption that would suppress a shipping pin check", () => {
+    const recorded = planPinChecks(
+      [activity],
+      submodules,
+      new Map([["plugins/activity", sha]]),
+      [{ name: "activity", reason: "in-tree replacement" }],
+    );
+    expect(recorded.requests).toEqual([]);
+    expect(recorded.manifestRequests).toEqual([]);
+    expect(
+      recorded.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes("conflicts with a shipping submodule"),
+      ),
+    ).toBe(true);
+
+    const declared = planPinChecks([activity], submodules, new Map(), [
+      { name: "activity", reason: "in-tree replacement" },
+    ]);
+    expect(
+      declared.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes("conflicts with a shipping submodule"),
+      ),
+    ).toBe(true);
+  });
+
+  test("fails when a shipping pin has no manifest_hash", () => {
+    const withoutHash = loaded(
+      {
+        ...baseEntry,
+        id: "official.activity",
+        repository: "https://github.com/bitty-terminal/activity",
+      },
+      "registry/official/activity.toml",
+      true,
+    );
+    const plan = planPinChecks(
+      [withoutHash],
+      submodules,
+      new Map([["plugins/activity", sha]]),
+    );
+    expect(plan.requests).toHaveLength(1);
+    expect(plan.manifestRequests).toEqual([]);
+    expect(
+      plan.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes("no manifest_hash"),
+      ),
+    ).toBe(true);
+  });
+
+  test("rejects a non-sha256 manifest_hash without network checks", () => {
+    const sha512 = loaded(
+      {
+        ...baseEntry,
+        id: "official.activity",
+        repository: "https://github.com/bitty-terminal/activity",
+        manifest_hash: `sha512:${"a".repeat(128)}`,
+      },
+      "registry/official/activity.toml",
+      true,
+    );
+    const plan = planPinChecks(
+      [sha512],
+      submodules,
+      new Map([["plugins/activity", sha]]),
+    );
+    expect(plan.requests).toHaveLength(1);
+    expect(plan.manifestRequests).toEqual([]);
+    expect(
+      plan.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes("sha256:<64 lowercase hex chars>"),
+      ),
+    ).toBe(true);
+  });
+
+  test("reports an exempt non-shipping entry with its reason", () => {
+    const plan = planPinChecks([activity], [], new Map(), [
+      { name: "activity", reason: "in-tree replacement" },
+    ]);
+    expect(plan.requests).toEqual([]);
+    expect(plan.diagnostics).toEqual([]);
+    expect(plan.notices).toContain(
+      "notice: registry/official/activity.toml: plugins/activity is exempt from pin checks (in-tree replacement)",
+    );
+  });
+
+  test("rejects a non-shipping exemption without a reason", () => {
+    const plan = planPinChecks([activity], [], new Map(), [
+      { name: "activity", reason: " " },
+    ]);
+    expect(
+      plan.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes("no reason"),
+      ),
+    ).toBe(true);
+  });
+
+  test("fails when a recorded pin is not reachable from the default branch", async () => {
+    const plan = planPinChecks(
+      [activity],
+      submodules,
+      new Map([["plugins/activity", sha]]),
+    );
+    const outcome = await checkPinReachability(
+      plan.requests,
+      {
+        resolveDefaultTip: async () => "c".repeat(40),
+        comparePinToTip: async () => ({ status: "diverged" }),
+      },
+      60000,
+    );
+    expect(
+      outcome.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes("not reachable"),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("manifest hash binding at the pin", () => {
+  const bytes = new TextEncoder().encode("manifest\n");
+  const base = {
+    name: "activity",
+    pin: "b".repeat(40),
+    url: "https://raw.githubusercontent.com/bitty-terminal/activity/pin/bitty-plugin.toml",
+    file: "registry/official/activity.toml",
+  };
+
+  test("passes when the pinned bytes match the registry hash", async () => {
+    const outcome = await checkManifestHashes(
+      [{ ...base, expected: `sha256:${digestManifest(bytes)}` }],
+      { readManifest: async () => ({ bytes }) },
+    );
+    expect(outcome.diagnostics).toEqual([]);
+    expect(outcome.halted).toBe(false);
+  });
+
+  test("fails when the pinned bytes do not match the registry hash", async () => {
+    const outcome = await checkManifestHashes(
+      [{ ...base, expected: `sha256:${"0".repeat(64)}` }],
+      { readManifest: async () => ({ bytes }) },
+    );
+    expect(
+      outcome.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes("manifest_hash mismatch"),
+      ),
+    ).toBe(true);
+  });
+
+  test("fails when the manifest is absent at the pin", async () => {
+    const outcome = await checkManifestHashes(
+      [{ ...base, expected: `sha256:${"0".repeat(64)}` }],
+      { readManifest: async () => ({ httpStatus: 404 }) },
+    );
+    expect(
+      outcome.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes("not found"),
+      ),
+    ).toBe(true);
+  });
+
+  test("fails when the manifest exceeds the byte cap", async () => {
+    const outcome = await checkManifestHashes(
+      [{ ...base, expected: `sha256:${"0".repeat(64)}` }],
+      {
+        readManifest: async () => ({
+          oversized: MANIFEST_MAX_BYTES + 1,
+        }),
+      },
+    );
+    expect(
+      outcome.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes(
+            `exceeds the ${MANIFEST_MAX_BYTES}-byte limit`,
+          ),
+      ),
+    ).toBe(true);
+  });
+
+  test("rejects a non-sha256 manifest_hash without reading the manifest", async () => {
+    const outcome = await checkManifestHashes(
+      [{ ...base, expected: `sha512:${"0".repeat(128)}` }],
+      {
+        readManifest: async () => {
+          throw new Error("must not read");
+        },
+      },
+    );
+    expect(
+      outcome.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.severity === "error" &&
+          diagnostic.message.includes("require sha256"),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("pinned manifest source selection", () => {
+  const request: ManifestHashRequest = {
+    name: "activity",
+    pin: "b".repeat(40),
+    url: "https://raw.githubusercontent.com/bitty-terminal/activity/pin/bitty-plugin.toml",
+    expected: `sha256:${"a".repeat(64)}`,
+    file: "registry/official/activity.toml",
+  };
+  const localBytes = new TextEncoder().encode("local manifest");
+  const rawBytes = new TextEncoder().encode("raw manifest");
+
+  test("prefers a local object and does not fetch the raw URL", async () => {
+    let fetches = 0;
+    const result = await readPinnedManifest(request, {
+      readLocal: () => ({ bytes: localBytes }),
+      fetchRaw: async () => {
+        fetches += 1;
+        return { bytes: rawBytes };
+      },
+    });
+    expect(result).toEqual({ bytes: localBytes });
+    expect(fetches).toBe(0);
+  });
+
+  test("falls back to the raw URL when the local checkout is unreadable", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "bitty-missing-"));
+    rmSync(dir, { recursive: true, force: true });
+    const result = await readPinnedManifest(request, {
+      readLocal: () => readManifestFromCheckout(dir, request.pin),
+      fetchRaw: async () => ({ bytes: rawBytes }),
+    });
+    expect(result).toEqual({ bytes: rawBytes });
+  });
+
+  test("treats a throwing local reader as a fallback, not a network error", async () => {
+    const result = await readPinnedManifest(request, {
+      readLocal: () => {
+        throw new Error("spawn failed");
+      },
+      fetchRaw: async () => ({ bytes: rawBytes }),
+    });
+    expect(result).toEqual({ bytes: rawBytes });
+  });
+});
+
+describe("local manifest object bounds", () => {
+  test("reads a pinned manifest within the cap", () => {
+    const { dir, pin } = createManifestFixture(64);
+    try {
+      const result = readManifestFromCheckout(dir, pin);
+      expect(result).toEqual({
+        bytes: new TextEncoder().encode("x".repeat(64)),
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects an oversized local object before reading it", () => {
+    const { dir, pin } = createManifestFixture(MANIFEST_MAX_BYTES + 1);
+    try {
+      expect(readManifestFromCheckout(dir, pin)).toEqual({
+        oversized: MANIFEST_MAX_BYTES + 1,
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -1872,11 +2344,48 @@ describe("bounded response reading", () => {
     );
   });
 
+  test("keeps the oversized error when a stream cancel rejects", async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(300 * 1024));
+      },
+      cancel() {
+        throw new Error("cancel failed");
+      },
+    });
+    const response = new Response(stream);
+    await expect(readBoundedText(response)).rejects.toThrow(
+      "exceeds the 262144-byte limit",
+    );
+  });
+
   test("accepts streamed responses within the limit", async () => {
     const body = "x".repeat(1000);
     const response = new Response(body);
     const text = await readBoundedText(response);
     expect(text).toBe(body);
+  });
+});
+
+describe("offline registry validation", () => {
+  test("keeps pin planning active with --skip-network", () => {
+    const { entries } = loadEntries();
+    const submodules = parseGitmodules(
+      readFileSync(join(REPO_ROOT, ".gitmodules"), "utf8"),
+    );
+    const expected = collectOfficialPins(entries, submodules).length;
+    const result = Bun.spawnSync({
+      cmd: [process.execPath, "scripts/validate-registry.ts", "--skip-network"],
+      cwd: REPO_ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const stdout = result.stdout.toString();
+    expect(result.exitCode).toBe(0);
+    expect(stdout).toContain(
+      `pin reachability and manifest hash checks skipped for ${expected} pin(s) (--skip-network)`,
+    );
+    expect(stdout).not.toContain("no recorded pin");
   });
 });
 

@@ -27,9 +27,9 @@
     },
     "manifest_hash": {
       "type": "string",
-      "description": "Optional raw-manifest digest (H-A, Phase 1): an algorithm-prefixed lowercase hex digest over the fetched bitty-plugin.toml bytes at the pinned revision. Advisory in this phase; shape-checked, recorded in the index, and not cryptographically verified. Future phases will distinguish raw-bytes (H-A) from semantic canonical hashing (H-B) via explicit version tagging.",
-      "pattern": "^[a-z0-9]+:[0-9a-f]{32,128}$",
-      "maxLength": 160
+      "description": "SHA-256 digest (H-A, raw bytes) over the bitty-plugin.toml at the pinned revision. Required and verified for official shipping pins; optional and advisory for community entries. Notation is sha256:<64 lowercase hex chars>, not semantic canonical hashing (H-B).",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "maxLength": 71
     },
     "signature": {
       "type": "object",
