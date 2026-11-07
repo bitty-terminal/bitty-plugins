@@ -20,7 +20,7 @@ description = "Read-only branch, status, diff, and log panel for the Git reposit
 tags = ["git", "version-control", "panel", "diff", "log"]
 categories = ["productivity", "developer-tools"]
 license = "MIT"
-manifest_hash = "sha256:2d4ebbe92f3acb5ffa87dee15d81c75f5e1ef889940c504cad6f8a7533d1effe"
+manifest_hash = "sha256:fb18021aba54da25256d01edf2e6fdc6caef9012e9e1f71f1af74ac745f2ace6"
 
 [compatibility]
 bitty = ">=0.0.24"
