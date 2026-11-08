@@ -121,6 +121,14 @@ integration-smoke:
 	for dir in sdk template; do
 		if [[ -f "$dir/justfile" ]]; then
 			echo "== integration: $dir"
+			if [[ -f "$dir/bun.lock" && ! -d "$dir/node_modules" ]]; then
+				echo "== integration: installing $dir dependencies"
+				if just --justfile "$dir/justfile" --show install >/dev/null 2>&1; then
+					just --justfile "$dir/justfile" install || status=1
+				else
+					(cd "$dir" && bun install --frozen-lockfile) || status=1
+				fi
+			fi
 			just --justfile "$dir/justfile" check || status=1
 		else
 			echo "== integration: $dir is not initialized; skipping (git submodule update --init --recursive)"
