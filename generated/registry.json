@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-07T17:47:59Z",
+  "generated_at": "2026-11-08T16:23:59Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -266,6 +266,40 @@
         "description": "Read-only branch, status, diff, and log panel for the Git repository behind the focused pane",
         "license": "MIT",
         "fetched_at": "2026-11-08T15:10:30Z"
+      }
+    },
+    {
+      "id": "bitty-terminal.help",
+      "name": "Help",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/help",
+      "official": true,
+      "signature_status": "unsigned",
+      "author": "bitty-terminal",
+      "description": "Help and which-key shortcut overlay over the live keymap registry.",
+      "tags": [
+        "help",
+        "keybindings",
+        "overlay",
+        "shortcuts",
+        "which-key"
+      ],
+      "categories": [
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.0.31",
+        "sdk": "^1.0"
+      },
+      "manifest_hash": "sha256:8cac6d1d761547c86861e9207b3ca659d44a27a6da9c42094e8b2f09e600debc",
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/help/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/help",
+        "version": "0.0.1",
+        "description": "Help and which-key shortcut overlay over the live keymap registry.",
+        "license": "MIT",
+        "fetched_at": "2026-11-08T16:24:02Z"
       }
     },
     {
