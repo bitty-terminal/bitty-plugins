@@ -219,7 +219,16 @@ function checkLocalManifests(entries: LoadedEntry[]): Diagnostic[] {
         siblingManifests:
           workspace === null
             ? []
-            : [join(workspace, name, PLUGIN_MANIFEST_FILE)],
+            : [
+                join(
+                  workspace,
+                  "bitty-plugins",
+                  "plugins",
+                  name,
+                  PLUGIN_MANIFEST_FILE,
+                ),
+                join(workspace, name, PLUGIN_MANIFEST_FILE),
+              ],
       },
       existsSync,
     );
