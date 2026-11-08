@@ -45,16 +45,16 @@ SDK and template implementations (their own repositories).
 
 ## Official versus community boundary (fixed)
 
-- **Official plugins (11)** live in `plugins/` as pinned submodules. An update
+- **Official plugins (12)** live in `plugins/` as pinned submodules. An update
   is a submodule pointer bump reviewed like any other change; the directory is
-  the known-good set maintained by `bitty-terminal`. The 11 registry entries
+  the known-good set maintained by `bitty-terminal`. The 12 registry entries
   under `registry/official/` and in `generated/registry.json` are:
   `bitty-featured.activity`, `bitty-featured.devtools`,
   `bitty-terminal.bar`, `bitty-terminal.composer`,
   `bitty-terminal.copy-mode`, `bitty-terminal.dashboard`,
   `bitty-terminal.file-manager`, `bitty-terminal.git-panel`,
-  `bitty-terminal.history`, `bitty-terminal.palette`, and
-  `bitty-terminal.search`.
+  `bitty-terminal.help`, `bitty-terminal.history`,
+  `bitty-terminal.palette`, and `bitty-terminal.search`.
   `bitty-terminal.bar` remains the active replacement for the retired
   `statusline` presentation concept (see
   [Retired and removed plugins](#retired-and-removed-plugins));
