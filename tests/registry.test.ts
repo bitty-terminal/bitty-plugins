@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import {
   REPO_ROOT,
   buildIndex,
@@ -2443,5 +2450,92 @@ describe("repository registry content", () => {
     );
     expect(countSeverity(activityDiagnostics, "error")).toBe(0);
     expect(validateRegistry(entries)).toEqual([]);
+  });
+
+  test("aligns official plugin manifest [settings] schemas with Lua bitty.settings.get reads (CTX-0035)", () => {
+    const { entries } = loadEntries();
+    let workspace: string | null = resolve(REPO_ROOT, "..");
+    while (workspace !== null) {
+      if (existsSync(join(workspace, "workspace.toml"))) break;
+      const parent = resolve(workspace, "..");
+      if (parent === workspace) {
+        workspace = null;
+        break;
+      }
+      workspace = parent;
+    }
+
+    function collectLuaFiles(dir: string): string[] {
+      if (!existsSync(dir)) return [];
+      const out: string[] = [];
+      for (const item of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, item.name);
+        if (item.isDirectory()) out.push(...collectLuaFiles(full));
+        else if (item.isFile() && item.name.endsWith(".lua")) out.push(full);
+      }
+      return out;
+    }
+
+    const allowedSettingsTypes = new Set([
+      "bool",
+      "int",
+      "float",
+      "string",
+      "string-array",
+    ]);
+
+    for (const { entry, official } of entries) {
+      if (!official) continue;
+      const name = repositoryName(entry.repository);
+      const manifestPath = resolveOfficialManifest(
+        {
+          submoduleManifest: join(
+            REPO_ROOT,
+            "plugins",
+            name,
+            "bitty-plugin.toml",
+          ),
+          siblingManifests:
+            workspace === null
+              ? []
+              : [
+                  join(
+                    workspace,
+                    "bitty-plugins",
+                    "plugins",
+                    name,
+                    "bitty-plugin.toml",
+                  ),
+                  join(workspace, name, "bitty-plugin.toml"),
+                ],
+        },
+        existsSync,
+      );
+      if (manifestPath === null) continue;
+
+      const pluginDir = dirname(manifestPath);
+      const parsed = Bun.TOML.parse(readFileSync(manifestPath, "utf8")) as {
+        settings?: Record<string, { type?: unknown; default?: unknown }>;
+      };
+      const declared = new Set(Object.keys(parsed.settings ?? {}));
+      for (const [, spec] of Object.entries(parsed.settings ?? {})) {
+        expect(allowedSettingsTypes.has(String(spec.type))).toBe(true);
+        expect(spec.default).toBeDefined();
+      }
+
+      const luaFiles = collectLuaFiles(join(pluginDir, "lua"));
+      const literalReads = new Set<string>();
+      for (const luaFile of luaFiles) {
+        const src = readFileSync(luaFile, "utf8");
+        for (const match of src.matchAll(
+          /\bsettings\.get\(\s*["']([a-z0-9_]+)["']\s*\)/g,
+        )) {
+          if (match[1]) literalReads.add(match[1]);
+        }
+      }
+      for (const key of literalReads) {
+        expect(declared.has(key)).toBe(true);
+      }
+    }
   });
 });
