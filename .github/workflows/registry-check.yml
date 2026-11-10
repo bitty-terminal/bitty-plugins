@@ -56,5 +56,7 @@ jobs:
         run: |
           just registry-generate
           git diff --exit-code -- generated/registry.json
+      - name: Validate extension catalog snapshot contract
+        run: just catalog-validate
       - name: Run registry tests
         run: just test
