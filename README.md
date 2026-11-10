@@ -32,7 +32,7 @@ behavior. Do not describe the store or CLI as shipped product behavior.
 | `registry/`  | Machine-readable registry entries (official and community), plus the entry schema.                                                |
 | `generated/` | Built artifacts consumed by downstream clients; only `registry.json` today.                                                       |
 | `app/`       | Static store frontend (Vite + TypeScript, vanilla DOM / Web Components, no framework).                                            |
-| `plugins/`   | 11 official maintained plugins as pinned Git submodules (known-good set); includes `devtools`.                                    |
+| `plugins/`   | 13 official maintained plugins as pinned Git submodules (known-good set); includes `devtools`.                                    |
 | `sdk/`       | Submodule: [bitty-plugin-sdk](https://github.com/bitty-terminal/bitty-plugin-sdk).                                                |
 | `template/`  | Submodule: [bitty-plugin-template](https://github.com/bitty-terminal/bitty-plugin-template).                                      |
 | `docs/`      | Submodule: [bitty-plugins-docs](https://github.com/bitty-terminal/bitty-plugins-docs) — canonical plugin-ecosystem documentation. |
@@ -45,25 +45,23 @@ SDK and template implementations (their own repositories).
 
 ## Official versus community boundary (fixed)
 
-- **Official plugins (12)** live in `plugins/` as pinned submodules. An update
+- **Official plugins (13)** live in `plugins/` as pinned submodules. An update
   is a submodule pointer bump reviewed like any other change; the directory is
-  the known-good set maintained by `bitty-terminal`. The 12 registry entries
+  the known-good set maintained by `bitty-terminal`. The 13 registry entries
   under `registry/official/` and in `generated/registry.json` are:
   `bitty-featured.activity`, `bitty-featured.devtools`,
-  `bitty-terminal.bar`, `bitty-terminal.composer`,
-  `bitty-terminal.copy-mode`, `bitty-terminal.dashboard`,
-  `bitty-terminal.file-manager`, `bitty-terminal.git-panel`,
-  `bitty-terminal.help`, `bitty-terminal.history`,
-  `bitty-terminal.palette`, and `bitty-terminal.search`.
+  `bitty-terminal.bar`, `bitty-terminal.beacon`,
+  `bitty-terminal.composer`, `bitty-terminal.copy-mode`,
+  `bitty-terminal.dashboard`, `bitty-terminal.file-manager`,
+  `bitty-terminal.git-panel`, `bitty-terminal.help`,
+  `bitty-terminal.history`, `bitty-terminal.palette`, and
+  `bitty-terminal.search`.
   `bitty-terminal.bar` remains the active replacement for the retired
   `statusline` presentation concept (see
   [Retired and removed plugins](#retired-and-removed-plugins));
   `bitty-terminal/statusline` is archived and its entry and pin are removed
   until the repository is writable again (#110). `bitty-featured.devtools` is
   registered and pinned from its mainline (minimum-only `>=0.0.21`).
-  `bitty-terminal/beacon` has neither a checkout nor an entry: it is a
-  service/daemon without a `bitty-plugin.toml`, so creation and registration
-  stay blocked on contract readiness (#64; TODO "Ecosystem").
 - **Community plugins are never submodules.** They live only as registry
   entries at `registry/community/<author>-<slug>.toml`, one file per plugin, in
   a machine-readable awesome-list model. This repository never clones or pins

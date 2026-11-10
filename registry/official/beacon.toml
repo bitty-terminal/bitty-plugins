@@ -1,0 +1,27 @@
+# Official registry entry: Bitty Beacon.
+#
+# Hand-maintained identity data only. Derived metadata (version, stars, dates,
+# downloads) is intentionally absent; `just registry-sync` mirrors the plugin's
+# bitty-plugin.toml into the optional `metadata` object of the generated index.
+#
+# Integrity (official shipping pin, required): `manifest_hash` is the sha256
+# digest (H-A: raw bytes) of the owning repository's `bitty-plugin.toml` at
+# the pinned submodule revision recorded by `git ls-tree HEAD plugins/beacon`.
+# `just registry-validate` verifies this digest at the pin. This is a digest
+# over fetched transport bytes (H-A), not semantic canonical hashing (H-B).
+# Refresh it when the pin moves (see README "Registry model" refresh procedure).
+
+id = "bitty-terminal.beacon"
+name = "Beacon"
+repository = "https://github.com/bitty-terminal/beacon"
+kind = "plugin"
+author = "bitty-terminal"
+description = "Spatial and semantic workspace targeting policy (Action x Target) over the live target registry and label allocator."
+tags = ["beacon", "targeting", "labels", "navigation", "workspace"]
+categories = ["productivity", "navigation"]
+license = "MIT"
+manifest_hash = "sha256:f84ef7369c377b6433a6805952c6b2344b37939e3e8a66abc47aff393f0a33c7"
+
+[compatibility]
+bitty = ">=0.0.31"
+sdk = "^1.0"

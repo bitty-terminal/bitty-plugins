@@ -45,3 +45,6 @@
 [submodule "plugins/help"]
 	path = plugins/help
 	url = https://github.com/bitty-terminal/help.git
+[submodule "plugins/beacon"]
+	path = plugins/beacon
+	url = https://github.com/bitty-terminal/beacon.git
