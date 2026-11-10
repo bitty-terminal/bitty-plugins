@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-08T16:23:59Z",
+  "generated_at": "2026-11-10T13:57:30Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -61,10 +61,10 @@
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/devtools/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/devtools",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "description": "Read-only inspection and event tracing of the Bitty plugin runtime.",
         "license": "MIT",
-        "fetched_at": "2026-10-22T01:44:31Z"
+        "fetched_at": "2026-11-10T13:57:33Z"
       }
     },
     {
@@ -98,6 +98,41 @@
         "description": "Consolidated workspace-bar, tabs, and statusline presentation over generic chrome insets.",
         "license": "MIT",
         "fetched_at": "2026-10-22T00:47:14Z"
+      }
+    },
+    {
+      "id": "bitty-terminal.beacon",
+      "name": "Beacon",
+      "kind": "plugin",
+      "repository": "https://github.com/bitty-terminal/beacon",
+      "official": true,
+      "signature_status": "unsigned",
+      "author": "bitty-terminal",
+      "description": "Spatial and semantic workspace targeting policy (Action x Target) over the live target registry and label allocator.",
+      "tags": [
+        "beacon",
+        "labels",
+        "navigation",
+        "targeting",
+        "workspace"
+      ],
+      "categories": [
+        "navigation",
+        "productivity"
+      ],
+      "license": "MIT",
+      "compatibility": {
+        "bitty": ">=0.0.31",
+        "sdk": "^1.0"
+      },
+      "manifest_hash": "sha256:f84ef7369c377b6433a6805952c6b2344b37939e3e8a66abc47aff393f0a33c7",
+      "metadata": {
+        "source": "https://raw.githubusercontent.com/bitty-terminal/beacon/HEAD/bitty-plugin.toml",
+        "repository_source": "https://github.com/bitty-terminal/beacon",
+        "version": "0.0.1",
+        "description": "Spatial and semantic workspace targeting policy over the public targeting, label-allocation, overlay, and workspace host APIs. Presentation and dispatch policy only; never mutates Terminal Truth.",
+        "license": "MIT",
+        "fetched_at": "2026-11-10T13:57:32Z"
       }
     },
     {
