@@ -403,13 +403,59 @@ a concrete need today.
 command shown in the store frontend is illustrative; the Bitty core does not
 implement registry installs yet.
 
+### Signed extension catalog snapshots
+
+After `bitty` PR #2826 capped Core's extension install seed to a single pinned
+`(name, version, target)` bootstrap artifact and removed `extensions/catalog.v1`
+from Core, `scripts/extension-catalog.ts` owns the refreshed extension catalog
+snapshot contract and its Ed25519 trust chain (`bitty-plugins#121`):
+
+- **Snapshot schema (`schema_version = 1`)**: closed JSON object containing
+  `schema_version`, monotonic `snapshot_version` (`>= 1`), UTC ISO-8601
+  `issued_at` and `expires_at` (`YYYY-MM-DDTHH:MM:SSZ`), canonically sorted
+  `entries[]` (`name`, strict `X.Y.Z` `version`, `target`, 64-hex `sha256`, and
+  64-hex `sha256sums_sha256`), `payload_sha256` (`sha256:<64-hex>` over the
+  canonical unsigned payload bytes), and `signature` (`algorithm = "ed25519"`,
+  `key_id`, 128-hex `value`).
+- **Signing preimage and key directory (`CatalogKeyDirectory`)**: Ed25519
+  signatures sign `bitty-extension-catalog-v1\n<payload_sha256>\n<canonical_unsigned_json>`.
+  The key directory (`schema_version = 1`, up to 16 keys) carries `key_id`,
+  `algorithm`, 64-hex `public_key`, `status` (`active` | `retired` |
+  `revoked`), `not_before`, and optional `not_after`. Only `active` keys may
+  sign newly published snapshots; `retired` keys remain accepted by readers for
+  snapshots whose `issued_at` falls within `[not_before, not_after]`; `revoked`
+  keys fail closed immediately.
+- **Shared publisher and reader bounds**: both `buildExtensionCatalogSnapshot`
+  and `verifyExtensionCatalogSnapshot` enforce `CATALOG_MAX_BYTES` (256 KiB),
+  `CATALOG_MAX_ENTRIES` (1024), `CATALOG_MAX_ENTRY_BYTES` (512 bytes),
+  `CATALOG_MAX_TTL_MS` (7 days), and `CATALOG_MAX_FUTURE_SKEW_MS` (5 minutes),
+  plus `SHA256SUMS` bounds (64 KiB, 4096 lines, 1024 bytes/line). The publisher
+  self-verifies every emitted snapshot so it cannot produce an object its own
+  reader rejects.
+- **Fail-closed diagnostics**: unknown fields at any level fail with
+  `E_CATALOG_UNKNOWN_FIELD`; missing or empty signatures fail with
+  `E_CATALOG_UNSIGNED`; tampered payload digests fail with
+  `E_CATALOG_DIGEST_MISMATCH`; invalid/revoked/out-of-window signatures fail
+  with `E_CATALOG_SIGNATURE_INVALID`; expired or future-skewed snapshots fail
+  with `E_CATALOG_STALE`; snapshots older than `minSnapshotVersion` (or
+  replayed at the same version with a different `payload_sha256`) fail with
+  `E_CATALOG_DOWNGRADE`; release `SHA256SUMS` or tarball hash mismatches fail
+  with `E_CATALOG_ARTIFACT_MISMATCH`.
+- **Seed bootstrap boundary**: `resolveCatalogArtifact` uses the verified
+  catalog snapshot as the normal resolution input (selecting either an exact
+  requested `version` or the highest verified semver in the snapshot). The
+  offline seed (`name + exact version + target + pinned sha256`) is used only
+  when no snapshot is present and `allowSeedBootstrap` is explicitly enabled,
+  always requires an explicit `version` (never "latest tag" guessing), and is
+  never used as a fallback when a supplied snapshot fails verification.
+
 ## Local development
 
 All JavaScript tooling runs through `bun` / `bunx --bun`; `npm`, `npx`, and
 `yarn` are never used in this repository. All gates run through the justfile:
 
 ```text
-just check              # fmt-check + lint + type-check + test + registry + app-build
+just check              # fmt-check + lint + type-check + test + registry + catalog + app-build
 just fmt                # format files with Prettier (writes)
 just lint               # Markdown lint (markdownlint-cli2)
 just type-check         # TypeScript, scripts/ and app/
@@ -417,6 +463,7 @@ just test               # registry/tooling test suite (bun test)
 just registry-validate  # validate registry entries (submodule mapping always; rest network-guarded)
 just registry-generate  # rebuild generated/registry.json
 just registry-sync      # refresh metadata from bitty-plugin.toml (network, optional)
+just catalog-validate   # run signed extension catalog snapshot self-test
 just app-build          # build the static store into app/dist (Vite)
 just app-dev            # run the Vite dev server for the store
 just app-preview        # build and preview the store locally

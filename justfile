@@ -62,6 +62,11 @@ registry-generate:
 registry-check:
 	bun scripts/generate-index.ts --check
 
+# Validate the signed extension catalog snapshot publisher, Ed25519 signature,
+# release SHA256SUMS cross-check, and read-back verification contract (#121).
+catalog-validate *args:
+	bun scripts/extension-catalog.ts --self-test {{args}}
+
 # Refresh optional manifest metadata into generated/registry.json from each
 # plugin's bitty-plugin.toml. Bounded, credential-free network access; degrades
 # gracefully when offline.
@@ -155,7 +160,7 @@ integration-smoke:
 	exit "$status"
 
 # Aggregate read-only gate run locally and in CI.
-check: fmt-check lint type-check test registry-validate registry-check app-build
+check: fmt-check lint type-check test registry-validate registry-check catalog-validate app-build
 
 # Deploy the built store to Cloudflare Pages. Requires CLOUDFLARE_API_TOKEN and
 # CLOUDFLARE_ACCOUNT_ID and a provisioned Pages project; dormant until then.

@@ -65,6 +65,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Publish and read-back-verify extension catalog snapshot contract
+        run: just catalog-validate
+
       - name: Build store frontend
         run: just app-build
 
