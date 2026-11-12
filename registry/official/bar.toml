@@ -20,7 +20,7 @@ description = "Consolidated workspace-bar, tabs, and statusline presentation ove
 tags = ["bar", "workspace-bar", "tabs", "statusline"]
 categories = ["productivity"]
 license = "MIT"
-manifest_hash = "sha256:651cd54d78f0f85d8db5faf745fa12b10f4a12703029b7d8646140816535c0c8"
+manifest_hash = "sha256:327837b4fea90e9f90529c7761db9539ded0627937735f01ebc370a22a705bfb"
 
 [compatibility]
 bitty = ">=0.0.24"
