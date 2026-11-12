@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-10T17:26:40Z",
+  "generated_at": "2026-11-12T06:25:43Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -90,7 +90,7 @@
         "bitty": ">=0.0.24",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:651cd54d78f0f85d8db5faf745fa12b10f4a12703029b7d8646140816535c0c8",
+      "manifest_hash": "sha256:327837b4fea90e9f90529c7761db9539ded0627937735f01ebc370a22a705bfb",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/bar/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/bar",
