@@ -20,7 +20,7 @@ description = "Read-only configuration and status dashboard over bitty.runtime.i
 tags = ["dashboard", "status", "configuration", "diagnostics", "inspector"]
 categories = ["productivity"]
 license = "MIT"
-manifest_hash = "sha256:ffb3532cea97e4417aa70f51aa3f3d4fe422ef41154d1efb82c9395d15578095"
+manifest_hash = "sha256:05e56da4a4eaac51cf53d87cfab93a71ba21541c456d7ed992e163e15d9e8c4f"
 
 [compatibility]
 bitty = ">=0.0.26"

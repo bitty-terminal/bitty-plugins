@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-12T06:25:43Z",
+  "generated_at": "2026-11-13T23:16:57Z",
   "plugins": [
     {
       "id": "bitty-featured.activity",
@@ -225,14 +225,14 @@
         "bitty": ">=0.0.26",
         "sdk": "^1.0"
       },
-      "manifest_hash": "sha256:ffb3532cea97e4417aa70f51aa3f3d4fe422ef41154d1efb82c9395d15578095",
+      "manifest_hash": "sha256:05e56da4a4eaac51cf53d87cfab93a71ba21541c456d7ed992e163e15d9e8c4f",
       "metadata": {
         "source": "https://raw.githubusercontent.com/bitty-terminal/dashboard/HEAD/bitty-plugin.toml",
         "repository_source": "https://github.com/bitty-terminal/dashboard",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "description": "Configuration and status dashboard: inspect runtime state and edit settings, plugins, and profiles in one panel.",
         "license": "MIT",
-        "fetched_at": "2026-11-08T15:10:29Z"
+        "fetched_at": "2026-11-13T23:16:59Z"
       }
     },
     {
