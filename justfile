@@ -73,8 +73,8 @@ app-preview: app-build
 
 # Install Git hooks managed by lefthook and CarryCtx.
 hooks-install:
-	lefthook install pre-commit
-	carryctx hooks install --compose
+	bun run lefthook install pre-commit
+	bun run carryctx hooks install --compose
 
 # Lint GitHub Actions workflows with the locally installed actionlint.
 # CI runs the same version as rhysd/actionlint:1.7.12 in a container.
