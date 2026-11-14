@@ -11,15 +11,15 @@ default:
 
 # Format all recognized files with Bun's native formatter.
 fmt:
-	bun fmt --no-script --no-config --ignore-unknown --ignore-pattern="generated/**"
+	bun fmt --no-script --no-config --ignore-unknown --ignore-pattern="generated/**" --ignore-pattern="sdk/**" --ignore-pattern="template/**"
 
 # Check formatting of all recognized files with Bun's native formatter.
 fmt-check:
-	bun fmt --no-script --no-config --check --ignore-unknown --ignore-pattern="generated/**"
+	bun fmt --no-script --no-config --check --ignore-unknown --ignore-pattern="generated/**" --ignore-pattern="sdk/**" --ignore-pattern="template/**"
 
 # Check formatting of specific files (used by the pre-commit hook).
 fmt-check-files *files:
-	bun fmt --no-script --no-config --check --ignore-unknown --ignore-pattern="generated/**" {{files}}
+	bun fmt --no-script --no-config --check --ignore-unknown --ignore-pattern="generated/**" --ignore-pattern="sdk/**" --ignore-pattern="template/**" {{files}}
 
 # Type-check scripts/ and app/ with Bun's native TypeScript checker.
 type-check:
