@@ -21,7 +21,7 @@ A clear and concise description of what you expected to happen.
 **Environment:**
 
 - OS: [e.g. CachyOS, Arch Linux, macOS 15]
-- Bun version: [e.g. 1.4.0]
+- Bun version: [e.g. 1.4.4]
 - Commit: [e.g. commit SHA]
 
 **Additional context**

@@ -9,11 +9,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "type-check": "tsc -p tsconfig.json --noEmit"
+    "type-check": "bun check --no-script -p tsconfig.json"
   },
   "devDependencies": {
     "@types/node": "26.5.1",
-    "typescript": "5.7.2",
     "vite": "8.3.0"
   }
 }

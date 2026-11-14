@@ -1,43 +1,29 @@
 # Bitty Plugins quality gates.
 #
-# Tool version pins live here (one place); installed dev dependencies are
-# pinned in package.json + bun.lock. All JavaScript tooling runs through
-# bun / bunx; never use npm, npx, or yarn, and never invoke formatters or
-# linters directly by name.
+# All JavaScript and TypeScript gates run natively through Bun 1.4.4 (`bun fmt`,
+# `bun check`, `bun test`).
 
-markdownlint_pin := "0.23.1"
-prettier_pin := "3.9.6"
-commitlint_pin := "21.2.2"
-lefthook_pin := "2.1.10"
 wrangler_pin := "4.125.0"
 
 # List available recipes.
 default:
 	@just --list
 
-# Lint all Markdown sources against .markdownlint-cli2.jsonc.
-lint:
-	bunx --bun markdownlint-cli2@{{markdownlint_pin}}
-
-# Lint specific Markdown files (used by the pre-commit hook).
-lint-files *files:
-	bunx --bun markdownlint-cli2@{{markdownlint_pin}} {{files}}
-
-# Format all recognized files with Prettier.
+# Format all recognized files with Bun's native formatter.
 fmt:
-	bunx --bun prettier@{{prettier_pin}} --write . --ignore-unknown
+	bun fmt --no-script --no-config --ignore-unknown --ignore-pattern="generated/**" --ignore-pattern="sdk/**" --ignore-pattern="template/**"
 
-# Check formatting of all recognized files with Prettier.
+# Check formatting of all recognized files with Bun's native formatter.
 fmt-check:
-	bunx --bun prettier@{{prettier_pin}} --check . --ignore-unknown
+	bun fmt --no-script --no-config --check --ignore-unknown --ignore-pattern="generated/**" --ignore-pattern="sdk/**" --ignore-pattern="template/**"
 
 # Check formatting of specific files (used by the pre-commit hook).
 fmt-check-files *files:
-	bunx --bun prettier@{{prettier_pin}} --check {{files}}
+	bun fmt --no-script --no-config --check --ignore-unknown --ignore-pattern="generated/**" --ignore-pattern="sdk/**" --ignore-pattern="template/**" {{files}}
 
-# Type-check scripts/ and app/ with the TypeScript pinned in package.json.
+# Type-check scripts/ and app/ with Bun's native TypeScript checker.
 type-check:
-	bunx --bun tsc -p tsconfig.json --noEmit
+	bun check --no-script -p tsconfig.json
 	cd app && bun run type-check
 
 # Run this repository's registry and tooling test suite (tests/ only;
@@ -85,18 +71,10 @@ app-dev:
 app-preview: app-build
 	cd app && bun run preview
 
-# Validate a commit message file with commitlint (conventional commits).
-commit-check message=".git/COMMIT_EDITMSG":
-	test -d node_modules/@commitlint/config-conventional || bun install --frozen-lockfile
-	bunx --bun commitlint@{{commitlint_pin}} --edit "{{message}}"
-
-# Install Git hooks managed by lefthook (opt-in per contributor checkout).
+# Install Git hooks managed by lefthook and CarryCtx.
 hooks-install:
-	bunx --bun lefthook@{{lefthook_pin}} install
-
-# Remove lefthook-managed Git hooks.
-hooks-uninstall:
-	bunx --bun lefthook@{{lefthook_pin}} uninstall
+	bun run lefthook install pre-commit
+	bun run carryctx hooks install --compose
 
 # Lint GitHub Actions workflows with the locally installed actionlint.
 # CI runs the same version as rhysd/actionlint:1.7.12 in a container.
@@ -160,7 +138,7 @@ integration-smoke:
 	exit "$status"
 
 # Aggregate read-only gate run locally and in CI.
-check: fmt-check lint type-check test registry-validate registry-check catalog-validate app-build
+check: fmt-check type-check test registry-validate registry-check catalog-validate app-build
 
 # Deploy the built store to Cloudflare Pages. Requires CLOUDFLARE_API_TOKEN and
 # CLOUDFLARE_ACCOUNT_ID and a provisioned Pages project; dormant until then.

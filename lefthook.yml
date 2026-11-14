@@ -1,16 +1,5 @@
-# Git hooks managed by lefthook. Install with `just hooks-install`.
-# All tool pins live in the justfile; this file only wires hooks to it.
-
-commit-msg:
-  commands:
-    commit-check:
-      run: just commit-check {1}
-
+# Lefthook owns pre-commit; CarryCtx owns prepare-commit-msg and post-commit.
 pre-commit:
   commands:
-    markdownlint-staged:
-      glob: "*.md"
-      run: just lint-files {staged_files}
-    prettier-staged:
-      glob: "*.md"
+    format-check:
       run: just fmt-check-files {staged_files}
