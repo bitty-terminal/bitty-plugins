@@ -4,10 +4,10 @@
   "carryctx_version": "0.12.0",
   "schema_version": 18,
   "project_id": "01M2E0AGA8R1CF9YMH8MENJ2Q9",
-  "export_id": "01M7HYMXZCQ2G5NARZ1VAJMGY4",
-  "created_at": "2026-11-16T10:32:36.588685233+00:00",
+  "export_id": "01M7HYN7EBCFHMW9Y2VMM8MVKW",
+  "created_at": "2026-11-16T10:32:46.283464959+00:00",
   "parents": [
-    "01M7DV8EMFARXQN6T9BF0FG3A1"
+    "01M7HYMXZCQ2G5NARZ1VAJMGY4"
   ],
   "sequences": {
     "display_id_CTX": 54,
@@ -16,8 +16,8 @@
     "display_id_progress": 163
   },
   "source": {
-    "git_branch": "ctx-0053/chore-bump-docs-pin",
-    "git_commit": "ac6a08fcab794cabd6dcdd8bf943d101428b1d74",
+    "git_branch": "main",
+    "git_commit": "ce4970544a49decdca852175539b278d5ff68d6a",
     "hostname": "unknown"
   },
   "counts": {
@@ -25,7 +25,7 @@
     "checkpoint_corrections": 0,
     "checkpoints": 92,
     "decisions": 10,
-    "events": 1089,
+    "events": 1090,
     "graph_edges": 131,
     "graph_nodes": 73,
     "handoffs": 1,
